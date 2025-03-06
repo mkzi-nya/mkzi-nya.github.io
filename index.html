@@ -45,6 +45,7 @@
     a:hover {
       text-decoration: underline;
     }
+    /* 目录容器 */
     .markdown-it-toc {
       border: 1px solid #30363d;
       padding: 10px;
@@ -56,38 +57,38 @@
 </head>
 <body>
   <div id="content" class="markdown-body">Loading...</div>
-
+  
   <!-- 依赖库 -->
   <script src="https://cdn.jsdelivr.net/npm/markdown-it@13.0.1/dist/markdown-it.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/markdown-it-anchor@8.6.6/dist/markdown-it-anchor.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/markdown-it-table-of-contents@0.5.2/dist/markdown-it-table-of-contents.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it-toc-done-right@4.2.0/dist/markdownItTocDoneRight.min.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      // 初始化 markdown-it
+      // 初始化 markdown-it，并接入 anchor 和 TOC 插件
       const md = window.markdownit({
         html: true,
         linkify: true,
         typographer: true
       })
       .use(window.markdownitAnchor)
-      .use(window.markdownitTableOfContents, {
-        includeLevel: [1, 2, 3, 4],
-        containerHeaderHtml: '<h2>目录</h2>',
-        containerClass: 'markdown-it-toc'
+      .use(window.markdownitTocDoneRight, {
+        containerClass: 'markdown-it-toc',
+        placeholder: '[toc]',   // 在 Markdown 中使用 [toc] 作为目录占位符
+        level: [1, 2, 3, 4],
+        listType: 'ul'
       });
-
-      // 读取 Markdown 文件
+      
+      // 读取 Markdown 文件（注意文件名，如果有中文建议改为英文试试）
       fetch('./说明_en.md', { cache: 'no-store' })
         .then(response => {
           if (!response.ok) throw new Error('Network response was not ok: ' + response.statusText);
           return response.text();
         })
         .then(mdText => {
-          // 先渲染 Markdown
+          // 将 Markdown 渲染成 HTML
           const renderedHTML = md.render(mdText);
           document.getElementById('content').innerHTML = renderedHTML;
-
-          // 由于 MathJax 需要在 Markdown 渲染完成后执行
+          // MathJax 渲染数学公式
           if (window.MathJax) {
             MathJax.typesetPromise();
           }
@@ -99,8 +100,8 @@
         });
     });
   </script>
-
-  <!-- MathJax for LaTeX 数学公式支持 -->
+  
+  <!-- MathJax 支持数学公式 -->
   <script>
     window.MathJax = {
       tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
