@@ -32,7 +32,7 @@
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       const md = markdownit({ html: true, linkify: true, typographer: true })
-        .use(markdownitKatex)
+        .use(markdownItKatex) // 注意这里修改了变量名
         .use(markdownItAnchor, {
           permalink: true,
           permalinkBefore: true,
