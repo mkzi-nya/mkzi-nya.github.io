@@ -7,45 +7,32 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.1/github-markdown-dark.min.css">
     <style>
-        /* 页面全屏，黑色背景 */
         body {
             background-color: #0d1117;
             color: #c9d1d9;
-            margin: 0;
-            padding: 20px;
+            font-family: sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            font-family: sans-serif;
+            margin: 0;
+            padding: 20px;
         }
-        /* Markdown 容器样式 */
         .markdown-body {
-            max-width: 900px;
+            max-width: 90%;
+            width: 800px;
             padding: 20px;
             background-color: #161b22;
             border-radius: 8px;
             box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+            word-wrap: break-word;
             overflow-wrap: break-word;
         }
-        /* 链接颜色 */
-        a {
-            color: #58a6ff;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        /* 代码块样式 */
-        pre {
-            background-color: #0d1117;
-            padding: 10px;
-            border-radius: 5px;
-            overflow-x: auto;
-        }
-        code {
-            font-family: monospace;
-            color: #e6edf3;
+        @media (max-width: 768px) {
+            .markdown-body {
+                max-width: 100%;
+                padding: 10px;
+            }
         }
     </style>
 </head>
@@ -57,11 +44,21 @@
             .then(response => response.text())
             .then(text => {
                 document.getElementById('content').innerHTML = marked.parse(text);
+                MathJax.typeset();  // 让 MathJax 重新渲染公式
             })
             .catch(error => {
                 document.getElementById('content').innerHTML = "<p style='color:red;'>加载 Markdown 失败</p>";
                 console.error('加载 Markdown 失败:', error);
             });
     </script>
+
+    <!-- MathJax 数学公式支持 -->
+    <script type="text/javascript">
+        MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </body>
 </html>
