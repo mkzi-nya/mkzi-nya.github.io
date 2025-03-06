@@ -5,16 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Markdown 渲染</title>
 
-    <!-- Showdown.js（Markdown 解析） -->
-    <script src="https://cdn.jsdelivr.net/npm/showdown@2.1.0/dist/showdown.min.js"></script>
+    <!-- 引入 Markdown 解析器 -->
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it/dist/markdown-it.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it-anchor/dist/markdown-it-anchor.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it-table-of-contents/dist/markdown-it-table-of-contents.min.js"></script>
 
-    <!-- KaTeX（数学公式支持） -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
-
-    <!-- GitHub 风格 Markdown CSS -->
+    <!-- 引入 GitHub 风格的 Markdown 样式 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.1/github-markdown-dark.min.css">
+
+    <!-- 引入 MathJax（数学公式支持） -->
+    <script type="text/javascript">
+        MathJax = {
+            tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
     <style>
         body {
@@ -22,15 +28,16 @@
             color: #c9d1d9;
             font-family: sans-serif;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
             min-height: 100vh;
             margin: 0;
             padding: 20px;
         }
+
         .markdown-body {
-            max-width: 1200px; /* 适应大屏幕 */
-            width: 95%; /* 适应小屏幕 */
+            max-width: 900px;
+            width: 90%;
             padding: 20px;
             background-color: #161b22;
             border-radius: 8px;
@@ -38,57 +45,77 @@
             word-wrap: break-word;
             overflow-wrap: break-word;
         }
+
+        /* 目录样式 */
+        .toc {
+            padding: 10px;
+            background-color: #1f252e;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        a {
+            color: #58a6ff;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        pre {
+            background-color: #0d1117;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+
+        code {
+            font-family: monospace;
+            color: #e6edf3;
+        }
+
         @media (max-width: 768px) {
             .markdown-body {
-                width: 100%;
+                max-width: 100%;
                 padding: 10px;
             }
-        }
-        /* 让长公式换行或滚动 */
-        .math-display {
-            overflow-x: auto;
-            white-space: nowrap;
-            display: block;
-            text-align: center;
         }
     </style>
 </head>
 <body>
+
+    <!-- 目录 -->
+    <nav class="toc markdown-body">
+        <strong>目录</strong>
+        <div id="toc-content"></div>
+    </nav>
+
+    <!-- Markdown 内容 -->
     <article id="content" class="markdown-body">加载中...</article>
 
     <script>
-        async function loadMarkdown() {
-            try {
-                // 获取 Markdown 文件内容
-                const response = await fetch('./说明_en.md');
-                if (!response.ok) throw new Error("无法加载 Markdown 文件");
-                const text = await response.text();
+        // 初始化 Markdown-it
+        const md = markdownit({
+            html: true,
+            linkify: true,
+            typographer: true
+        }).use(markdownitAnchor)
+          .use(window.markdownitTableOfContents, { includeLevel: [2, 3] });
 
-                // 用 Showdown 解析 Markdown
-                const converter = new showdown.Converter({
-                    tables: true,       // 支持表格
-                    strikethrough: true, // 支持删除线
-                    tasklists: true      // 支持任务列表
-                });
-
-                document.getElementById('content').innerHTML = converter.makeHtml(text);
-
-                // 解析数学公式（KaTeX）
-                renderMathInElement(document.getElementById('content'), {
-                    delimiters: [
-                        { left: "$$", right: "$$", display: true, className: "math-display" },
-                        { left: "$", right: "$", display: false }
-                    ],
-                    throwOnError: false
-                });
-
-            } catch (error) {
+        // 加载 Markdown 文件
+        fetch('./说明_en.md')
+            .then(response => response.text())
+            .then(text => {
+                document.getElementById('content').innerHTML = md.render(text);
+                document.getElementById('toc-content').innerHTML = md.render("[TOC]"); // 生成目录
+                MathJax.typeset();  // 让 MathJax 重新渲染公式
+            })
+            .catch(error => {
                 document.getElementById('content').innerHTML = "<p style='color:red;'>加载 Markdown 失败</p>";
-                console.error("Markdown 加载失败:", error);
-            }
-        }
-
-        loadMarkdown();
+                console.error('加载 Markdown 失败:', error);
+            });
     </script>
+
 </body>
 </html>
