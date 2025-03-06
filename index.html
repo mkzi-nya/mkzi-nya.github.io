@@ -2,112 +2,119 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>Markdown with Math</title>
-  <!-- GitHub Markdown CSS (Dark Theme) -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.1/github-markdown-dark.min.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Markdown Renderer</title>
+
+  <!-- GitHub 风格暗色 CSS -->
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.5.1/github-markdown-dark.min.css"
+    integrity="sha512-gGZItHqKyh0B0vXlK1c2XDp9f/PFhTZrBC3ai0CLmtlRZgQAWtcKzpfbdLdwkx3P8PqI1MaC9MyFe6WWc+jZ0g=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
+
+  <!-- 自定义样式，让页面在移动端也好看，自动换行 -->
   <style>
     body {
-      margin: 0;
-      padding: 0;
       background-color: #0d1117;
       color: #c9d1d9;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue",
+        sans-serif;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
     }
     .markdown-body {
-      max-width: 900px;
-      width: 100%;
-      margin: 20px;
-      padding: 20px;
       background-color: #161b22;
+      padding: 20px;
       border-radius: 8px;
       box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+      /* 自动换行 */
       word-wrap: break-word;
       overflow-wrap: break-word;
     }
-    pre {
-      background-color: #0d1117;
-      padding: 10px;
-      border-radius: 5px;
-      overflow-x: auto;
-    }
-    code {
-      font-family: monospace;
-      color: #e6edf3;
-    }
-    a {
-      color: #58a6ff;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
-    /* 目录容器 */
-    .markdown-it-toc {
-      border: 1px solid #30363d;
-      padding: 10px;
-      border-radius: 6px;
-      margin-bottom: 20px;
-      background-color: #0d1117;
+    /* 小屏幕适配 */
+    @media (max-width: 768px) {
+      .container {
+        padding: 10px;
+      }
+      .markdown-body {
+        padding: 10px;
+      }
     }
   </style>
 </head>
 <body>
-  <div id="content" class="markdown-body">Loading...</div>
-  
-  <!-- 依赖库 -->
-  <script src="https://cdn.jsdelivr.net/npm/markdown-it@13.0.1/dist/markdown-it.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/markdown-it-anchor@8.6.6/dist/markdown-it-anchor.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/markdown-it-toc-done-right@4.2.0/dist/markdownItTocDoneRight.min.js"></script>
+  <div class="container">
+    <!-- 这里将动态插入渲染后的 Markdown -->
+    <article id="content" class="markdown-body">
+      <p>Loading...</p>
+    </article>
+  </div>
+
+  <!-- 引入所需 JS 库：markdown-it、插件和 MathJax -->
+  <script
+    src="https://cdn.jsdelivr.net/npm/markdown-it@13.0.1/dist/markdown-it.min.js"
+    integrity="sha256-7e0pwEXZ+1ntN3/QACWrh3tHcFuEn4clYch1N65HjP8="
+    crossorigin="anonymous">
+  </script>
+
+  <script
+    src="https://cdn.jsdelivr.net/npm/markdown-it-anchor@9.0.0/dist/markdown-it-anchor.min.js"
+    integrity="sha256-PeaF+jGC1MrNzw8o84b0rF8SCCNYZpeznZ2ykK5khrM="
+    crossorigin="anonymous">
+  </script>
+
+  <script
+    src="https://cdn.jsdelivr.net/npm/markdown-it-table-of-contents@0.5.2/dist/index.min.js"
+    integrity="sha256-zMRqvky2KBCZdzZQJxgAf2LMnuUyTH5RPZ9KwU4HsVg="
+    crossorigin="anonymous">
+  </script>
+
+  <script
+    src="https://cdn.jsdelivr.net/npm/markdown-it-mathjax3@3.0.1/dist/markdown-it-mathjax3.min.js"
+    integrity="sha256-Bbt7C1iey8JGv2bRThzjnutN6sOB0/b2UpyfvtJFKmQ="
+    crossorigin="anonymous">
+  </script>
+
   <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      // 初始化 markdown-it，并接入 anchor 和 TOC 插件
-      const md = window.markdownit({
-        html: true,
-        linkify: true,
-        typographer: true
+    // 初始化 markdown-it 并启用所需插件
+    const md = window.markdownit({
+      html: true,       // 允许 HTML 标签
+      linkify: true,    // 自动识别链接
+      typographer: true // 启用智能引号等
+    })
+    // 标题锚点插件（自动给标题生成 id，便于目录跳转）
+    .use(window.markdownitAnchor, {
+      // 给标题加上可点击的锚点链接
+      permalink: window.markdownitAnchor.permalink.headerLink()
+    })
+    // 目录插件（在 Markdown 中使用 [toc] 占位符自动生成目录）
+    .use(window.markdownitTableOfContents, {
+      includeLevel: [1, 2, 3, 4],
+      containerHeaderHtml: '<h2>Table of Contents</h2>'
+      // 如果想默认在最顶部插入目录，可加 force: true
+    })
+    // 数学公式插件，支持 $...$、$$...$$
+    .use(window.markdownitMathjax3);
+
+    // 加载并渲染同目录下的 Markdown 文件
+    fetch('./说明_en.md')
+      .then(response => response.text())
+      .then(text => {
+        const rendered = md.render(text);
+        document.getElementById('content').innerHTML = rendered;
       })
-      .use(window.markdownitAnchor)
-      .use(window.markdownitTocDoneRight, {
-        containerClass: 'markdown-it-toc',
-        placeholder: '[toc]',   // 在 Markdown 中使用 [toc] 作为目录占位符
-        level: [1, 2, 3, 4],
-        listType: 'ul'
+      .catch(err => {
+        console.error(err);
+        document.getElementById('content').innerHTML =
+          '<p style="color:red;">Failed to load Markdown file.</p>';
       });
-      
-      // 读取 Markdown 文件（注意文件名，如果有中文建议改为英文试试）
-      fetch('./说明_en.md', { cache: 'no-store' })
-        .then(response => {
-          if (!response.ok) throw new Error('Network response was not ok: ' + response.statusText);
-          return response.text();
-        })
-        .then(mdText => {
-          // 将 Markdown 渲染成 HTML
-          const renderedHTML = md.render(mdText);
-          document.getElementById('content').innerHTML = renderedHTML;
-          // MathJax 渲染数学公式
-          if (window.MathJax) {
-            MathJax.typesetPromise();
-          }
-        })
-        .catch(err => {
-          console.error('加载 Markdown 失败:', err);
-          document.getElementById('content').innerHTML =
-            '<p style="color:red;">加载失败：' + err.message + '</p>';
-        });
-    });
   </script>
-  
-  <!-- MathJax 支持数学公式 -->
-  <script>
-    window.MathJax = {
-      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
-      svg: { fontCache: 'global' }
-    };
-  </script>
-  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </body>
 </html>
