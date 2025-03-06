@@ -29,8 +29,8 @@
             padding: 20px;
         }
         .markdown-body {
-            max-width: 90%;
-            width: 800px;
+            max-width: 1200px; /* 适应大屏幕 */
+            width: 95%; /* 适应小屏幕 */
             padding: 20px;
             background-color: #161b22;
             border-radius: 8px;
@@ -40,9 +40,16 @@
         }
         @media (max-width: 768px) {
             .markdown-body {
-                max-width: 100%;
+                width: 100%;
                 padding: 10px;
             }
+        }
+        /* 让长公式换行或滚动 */
+        .math-display {
+            overflow-x: auto;
+            white-space: nowrap;
+            display: block;
+            text-align: center;
         }
     </style>
 </head>
@@ -69,7 +76,7 @@
                 // 解析数学公式（KaTeX）
                 renderMathInElement(document.getElementById('content'), {
                     delimiters: [
-                        { left: "$$", right: "$$", display: true },
+                        { left: "$$", right: "$$", display: true, className: "math-display" },
                         { left: "$", right: "$", display: false }
                     ],
                     throwOnError: false
