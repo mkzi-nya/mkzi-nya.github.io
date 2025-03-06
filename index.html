@@ -9,11 +9,11 @@
   <!-- KaTeX CSS for math formulas -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.2/katex.min.css">
   <style>
-    /* Basic reset and responsive styling */
+    /* 基础样式和响应式布局 */
     body {
       margin: 0;
       padding: 20px;
-      background-color: #0d1117; /* Dark background similar to GitHub dark mode */
+      background-color: #0d1117; /* GitHub暗色背景 */
       color: #c9d1d9;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
     }
@@ -27,45 +27,43 @@
   </style>
 </head>
 <body>
-  <!-- Container for the rendered markdown -->
+  <!-- 用于呈现渲染后的 markdown 内容 -->
   <div class="markdown-body" id="content">
     正在加载...
   </div>
 
-  <!-- Markdown-it library -->
+  <!-- 引入markdown-it库 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/13.0.1/markdown-it.min.js"></script>
-  <!-- Markdown-it Katex plugin for math formulas -->
+  <!-- 引入markdown-it-katex插件，用于数学公式渲染 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it-katex/3.0.1/markdown-it-katex.min.js"></script>
-  <!-- Markdown-it Anchor plugin for heading anchors (table of contents support) -->
+  <!-- 引入markdown-it-anchor插件，用于目录索引和锚点支持 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it-anchor/8.6.1/markdownItAnchor.min.js"></script>
   <script>
     document.addEventListener("DOMContentLoaded", function() {
-      // Initialize markdown-it with options and plugins:
-      // - Enable HTML tags, linkify, and typographic replacements.
-      // - Use KaTeX for rendering math formulas.
-      // - Use Anchor plugin to add anchors to headings for TOC/linking.
-      var md = window.markdownit({
+      // 初始化markdown-it，启用HTML、链接和排版优化
+      // 直接调用全局变量 markdownitKatex 与 markdownitAnchor，无需 window 前缀
+      var md = markdownit({
         html: true,
         linkify: true,
         typographer: true,
       })
-      .use(window.markdownitKatex)
-      .use(window.markdownitAnchor, {
+      .use(markdownitKatex)
+      .use(markdownitAnchor, {
         permalink: true,
         permalinkBefore: true,
         permalinkSymbol: '#'
       });
-
-      // Fetch the markdown file located at "./说明_en.md"
-      fetch('./1.md')
+      
+      // 从当前路径下加载 "./说明_en.md" 文件
+      fetch('./说明_en.md')
         .then(function(response) {
           if (!response.ok) {
-            throw new Error('无法加载markdown文件');
+            throw new Error('无法加载 markdown 文件');
           }
           return response.text();
         })
         .then(function(text) {
-          // Convert markdown to HTML and insert into the page
+          // 将 markdown 转换为 HTML 并插入页面
           document.getElementById('content').innerHTML = md.render(text);
         })
         .catch(function(error) {
