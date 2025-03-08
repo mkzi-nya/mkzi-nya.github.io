@@ -1,0 +1,39 @@
+name: Auto Sync 2048 on Update
+
+on:
+  repository_dispatch:
+    types: [update-2048]
+  workflow_dispatch:  # 允许手动触发
+  push:
+    branches:
+      - main  # 允许手动 push 触发同步
+
+jobs:
+  sync-2048:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout mkzi-nya.github.io Repo
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false  # 避免使用默认 GitHub 令牌
+
+      - name: Pull latest 2048 Repo
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+
+          # 如果 /2048 目录已存在，先删除旧版本
+          rm -rf 2048
+
+          # 克隆最新的 2048 仓库到 /2048 文件夹
+          git clone --depth=1 https://github.com/mkzi-nya/2048.git 2048
+
+          # 删除 Git 信息，使其作为普通文件存在
+          rm -rf 2048/.git
+
+      - name: Commit and Push Changes
+        run: |
+          git add .
+          git commit -m "Auto-sync 2048 repo to /2048" || echo "No changes to commit"
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/mkzi-nya/mkzi-nya.github.io.git main
