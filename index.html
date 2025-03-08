@@ -1,4 +1,148 @@
 <!DOCTYPE html>
-<html>
-    <meta http-equiv="refresh" content="0;url=https://mkzi-nya.github.io/milthm-calculator-web/">
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mkzi-nya的个人主页</title>
+  <style>
+    /* 全局样式重置 */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    /* 页面主体设置暗色背景和字体颜色 */
+    body {
+      background-color: #121212;
+      color: #e0e0e0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      text-align: center;
+    }
+    /* 顶部标题区域 */
+    header {
+      background-color: #1f1f1f;
+      padding: 20px;
+      font-size: 2em;
+      font-weight: bold;
+      transition: opacity 0.5s ease-in-out;
+    }
+    /* 主内容区域，按钮区域居中 */
+    .content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      padding: 20px;
+    }
+    /* 按钮容器样式 */
+    .button-container {
+      background-color: #1a1a1a;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      align-items: center;
+      width: 100%;
+      max-width: 400px;
+    }
+    /* 按钮样式 */
+    .button-container a, .button-container button {
+      text-decoration: none;
+      background-color: #333;
+      color: #e0e0e0;
+      padding: 15px 30px;
+      border-radius: 5px;
+      font-size: 1.2em;
+      transition: transform 0.1s ease, background-color 0.1s ease;
+      width: 100%;
+      text-align: center;
+      border: none;
+      cursor: pointer;
+    }
+    /* 按钮悬停效果 */
+    .button-container a:hover, .button-container button:hover {
+      background-color: #444;
+    }
+    /* 按钮点击时的动画 */
+    .button-container button:active {
+      transform: scale(1.05);
+      background-color: #555;
+    }
+    /* 页脚简单信息 */
+    footer {
+      text-align: center;
+      padding: 10px;
+      background-color: #1f1f1f;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+
+  <header id="header-text">欢迎~</header>
+
+  <div class="content">
+    <div class="button-container">
+      <button onclick="animateButton(this, showMeow)">ฅ^•ﻌ•^ฅ</button>
+      <a href="https://mkzi-nya.github.io/milthm-calculator-web/" target="_blank">Milthm Calculator</a>
+      <a href="https://mkzi-nya.github.io/2048.html" target="_blank">2048游戏</a>
+    </div>
+  </div>
+
+  <footer>
+    © 2025 mkzi-nya
+  </footer>
+
+  <script>
+    // 语言数组（欢迎~）
+    const welcomeMessages = [
+      "欢迎~", "Welcome~", "ようこそ~",
+    ];
+    
+    // 语言数组（喵~）
+    const meowMessages = [
+      "喵~", "Meow~", "Miau~", "にゃ~", "야옹~", "Мяу~", "Miaou~", "Mjau~", "Meeeooow~", "咪~", "ฅ^•ﻌ•^ฅ"
+    ];
+
+    // 让标题循环变化
+    let index = 0;
+    function changeTitle() {
+      const header = document.getElementById("header-text");
+      header.style.opacity = 0; // 渐隐
+      setTimeout(() => {
+        index = (index + 1) % welcomeMessages.length;
+        header.innerText = welcomeMessages[index];
+        header.style.opacity = 1; // 渐显
+      }, 500);
+    }
+    setInterval(changeTitle, 3000); // 每3秒切换一次
+
+    // 按钮动画
+    function animateButton(button, callback) {
+      button.style.transform = "scale(1.2)";  // 放大
+      button.style.backgroundColor = "#555"; // 颜色变化
+
+      setTimeout(() => {
+        button.style.transform = "scale(1)";  // 缩小回去
+        button.style.backgroundColor = "#333"; // 颜色恢复
+
+        setTimeout(() => {
+          if (callback) callback();
+        }, 50); // 让动画完成后再执行回调函数
+      }, 100); // 0.1秒后执行缩小
+    }
+
+    // 点击按钮弹出随机喵~
+    function showMeow() {
+      alert(meowMessages[Math.floor(Math.random() * meowMessages.length)]);
+    }
+  </script>
+
+</body>
 </html>
