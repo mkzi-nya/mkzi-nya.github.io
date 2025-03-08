@@ -1,19 +1,25 @@
-/* 让棋盘始终占满屏幕的 95% */
 .grid-container {
   position: relative;
   display: grid;
   gap: 10px;
   background-color: #bbada0;
   border-radius: 10px;
-  width: 95vh; /* 让宽度适应屏幕的 95% */
-  height: 95vh; /* 让高度也适应屏幕的 95% */
-  max-width: 95vw; /* 防止棋盘超出宽度 */
-  max-height: 95vw; /* 保持棋盘是正方形 */
-  aspect-ratio: 1 / 1; /* 让棋盘始终保持正方形 */
+  width: 95vmin;  /* 使用 vmin 保证适配横屏和竖屏 */
+  height: 95vmin; /* 确保棋盘始终正方形 */
   padding: 10px;
   box-sizing: border-box;
   margin-bottom: 15px;
 }
+
+
+@media (min-width: 1024px) {
+  .grid-container {
+    width: 60vh;  /* 在电脑端缩小棋盘，使其更适配 */
+    height: 60vh;
+  }
+}
+
+
 
 /* 让每个背景格子均分棋盘区域 */
 .grid-cell {
