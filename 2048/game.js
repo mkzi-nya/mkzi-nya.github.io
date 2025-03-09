@@ -11,6 +11,16 @@ let isGameStarted = false; // 游戏开始后才能操作
 
 const SWIPE_THRESHOLD = 10;
 
+// ===== 辅助函数：格式化数值 =====
+// 如果数值大于等于 1 万，则除以 1000 向下取整，并在末尾加上 "k"
+function formatNumber(n) {
+  if(n >= 10000) {
+    return Math.floor(n / 1000) + "k";
+  } else {
+    return n.toString();
+  }
+}
+
 // ============ 页面加载 ============
 window.addEventListener("DOMContentLoaded", () => {
   // 从 localStorage 读取当前配置下的最高分数
@@ -18,7 +28,7 @@ window.addEventListener("DOMContentLoaded", () => {
   if(localStorage.getItem(bestScoreKey)) {
     bestScore = parseInt(localStorage.getItem(bestScoreKey));
   }
-  document.getElementById("bestScore").innerText = bestScore;
+  document.getElementById("bestScore").innerText = formatNumber(bestScore);
   
   // 初始化面板显示
   document.getElementById("spanSide").innerText = side;
@@ -79,7 +89,7 @@ function changeSide(delta) {
   // 更新当前配置下的最高分显示
   const bestScoreKey = "bestScore_" + side + "_" + base;
   let stored = localStorage.getItem(bestScoreKey);
-  document.getElementById("bestScore").innerText = stored ? stored : "0";
+  document.getElementById("bestScore").innerText = stored ? formatNumber(parseInt(stored)) : "0";
   createGrid(side);
 }
 
@@ -94,7 +104,7 @@ function changeBase(delta) {
   // 更新当前配置下的最高分显示
   const bestScoreKey = "bestScore_" + side + "_" + base;
   let stored = localStorage.getItem(bestScoreKey);
-  document.getElementById("bestScore").innerText = stored ? stored : "0";
+  document.getElementById("bestScore").innerText = stored ? formatNumber(parseInt(stored)) : "0";
 }
 
 // ============ 点击“开始游戏” ============
@@ -114,7 +124,7 @@ function applySettings() {
   } else {
     bestScore = 0;
   }
-  document.getElementById("bestScore").innerText = bestScore;
+  document.getElementById("bestScore").innerText = formatNumber(bestScore);
   setupGame();
 }
 
@@ -155,12 +165,13 @@ function toggleDarkMode() {
 }
 
 // ============ 分数更新 ============
+// 第一处 updateScore 定义
 function updateScore(add) {
   currentScore += add;
-  document.getElementById("currentScore").innerText = currentScore;
+  document.getElementById("currentScore").innerText = formatNumber(currentScore);
   if(currentScore > bestScore) {
     bestScore = currentScore;
-    document.getElementById("bestScore").innerText = bestScore;
+    document.getElementById("bestScore").innerText = formatNumber(bestScore);
     const bestScoreKey = "bestScore_" + side + "_" + base;
     localStorage.setItem(bestScoreKey, bestScore);
   }
@@ -387,7 +398,7 @@ function renderAllTiles(skipAnimation = false) {
     } else {
       div.style.transitionDuration = "0.2s";
     }
-    div.innerText = t.value;
+    div.innerText = formatNumber(t.value);
     let oldRect = getCellRect(bgCells, t.oldRow, t.oldCol);
     div.style.width = oldRect.width + "px";
     div.style.height = oldRect.height + "px";
@@ -450,7 +461,7 @@ function checkGameOver() {
       }
     }
   }
-  alert("游戏结束！最终分数：" + currentScore);
+  alert("游戏结束！最终分数：" + formatNumber(currentScore));
 }
 
 // ============ 存档导出 ============
@@ -517,8 +528,8 @@ function importSave(e) {
       document.getElementById("spanBase").innerText = base;
       const bestScoreKey = "bestScore_" + side + "_" + base;
       let stored = localStorage.getItem(bestScoreKey);
-      document.getElementById("bestScore").innerText = stored ? stored : "0";
-      document.getElementById("currentScore").innerText = currentScore;
+      document.getElementById("bestScore").innerText = stored ? formatNumber(parseInt(stored)) : "0";
+      document.getElementById("currentScore").innerText = formatNumber(currentScore);
       createGrid(side);
       renderAllTiles(true);
       if(!inputInited) {
@@ -615,10 +626,10 @@ function updateScore(add) {
     aiSimScore += add;
   } else {
     currentScore += add;
-    document.getElementById("currentScore").innerText = currentScore;
+    document.getElementById("currentScore").innerText = formatNumber(currentScore);
     if (currentScore > bestScore) {
       bestScore = currentScore;
-      document.getElementById("bestScore").innerText = bestScore;
+      document.getElementById("bestScore").innerText = formatNumber(bestScore);
       const bestScoreKey = "bestScore_" + side + "_" + base;
       localStorage.setItem(bestScoreKey, bestScore);
     }
