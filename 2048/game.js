@@ -1,31 +1,19 @@
 // Version: 1
 
 // ============ 全局变量 ============
-
-// 默认 4x4 棋盘
 let side = 4;
 let base = 2;  // 基数，可调范围 2-10
-let tiles = [];        // 当前所有方块，每个对象格式：{id, value, row, col, oldRow, oldCol, merged, spawned, mergedFrom}
-let tileID = 0;        // 方块唯一ID
+let tiles = [];        // 当前所有方块，每个对象格式：{id, value, n, row, col, oldRow, oldCol, merged, spawned, mergedFrom}
+let tileID = 0;        // 用于分配唯一 ID
 let currentScore = 0;
 let bestScore = 0;
 let isGameStarted = false; // 游戏开始后才能操作
 
 const SWIPE_THRESHOLD = 10;
 
-// 辅助函数：计算 val 为 base 的几次幂（保证 val 是 base 的幂）
-function getExponent(val, base) {
-  let exp = 0;
-  while(val >= base) {
-    val /= base;
-    exp++;
-  }
-  return exp;
-}
-
 // ============ 页面加载 ============
 window.addEventListener("DOMContentLoaded", () => {
-  // 从 localStorage 读取当前配置下最高分数
+  // 从 localStorage 读取当前配置下的最高分数
   const bestScoreKey = "bestScore_" + side + "_" + base;
   if(localStorage.getItem(bestScoreKey)) {
     bestScore = parseInt(localStorage.getItem(bestScoreKey));
@@ -38,7 +26,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   createGrid(side);
 
-  // 绑定底部调节按钮
+  // 绑定调节按钮
   document.getElementById("btnSideMinus").addEventListener("click", () => changeSide(-1));
   document.getElementById("btnSidePlus").addEventListener("click", () => changeSide(+1));
   document.getElementById("btnBaseMinus").addEventListener("click", () => changeBase(-1));
@@ -88,7 +76,7 @@ function changeSide(delta) {
   if(newVal > 10) newVal = 10;
   side = newVal;
   document.getElementById("spanSide").innerText = side;
-  // 更新最高分显示
+  // 更新当前配置下的最高分显示
   const bestScoreKey = "bestScore_" + side + "_" + base;
   let stored = localStorage.getItem(bestScoreKey);
   document.getElementById("bestScore").innerText = stored ? stored : "0";
@@ -103,7 +91,7 @@ function changeBase(delta) {
   if(newBase > 10) newBase = 10;
   base = newBase;
   document.getElementById("spanBase").innerText = base;
-  // 更新最高分显示
+  // 更新当前配置下的最高分显示
   const bestScoreKey = "bestScore_" + side + "_" + base;
   let stored = localStorage.getItem(bestScoreKey);
   document.getElementById("bestScore").innerText = stored ? stored : "0";
@@ -113,6 +101,7 @@ function changeBase(delta) {
 function applySettings() {
   if(isGameStarted) return;
   isGameStarted = true;
+  // 禁用调节按钮
   document.getElementById("btnSideMinus").disabled = true;
   document.getElementById("btnSidePlus").disabled = true;
   document.getElementById("btnBaseMinus").disabled = true;
@@ -238,7 +227,7 @@ function initInputEvents() {
   }, {passive:false});
 }
 
-// 更新所有方块位置与状态
+// 更新所有方块的状态
 function finalizePositions() {
   tiles.forEach(t => {
     t.oldRow = t.row;
@@ -293,7 +282,9 @@ function moveDown(){
 }
 
 /**
- * 合并一行或一列的方块
+ * 合并一行或一列的方块  
+ * 当两个相邻且数值相同（即等级 n 相同）的方块合并后，新 tile 的等级 n 增加 1，
+ * 数值更新为：value = base × 2^(n–1)
  */
 function compressLine(lineTiles, direction) {
   if(lineTiles.length === 0) return false;
@@ -305,7 +296,8 @@ function compressLine(lineTiles, direction) {
     if(i < lineTiles.length - 1 && lineTiles[i].value === lineTiles[i+1].value) {
       let targetTile = lineTiles[i];
       let mergingTile = lineTiles[i+1];
-      targetTile.value *= base;
+      targetTile.n = targetTile.n + 1;
+      targetTile.value = base * Math.pow(2, targetTile.n - 1);
       updateScore(targetTile.value);
       targetTile.merged = true;
       targetTile.mergedFrom = { row: mergingTile.row, col: mergingTile.col };
@@ -362,41 +354,11 @@ function spawnRandomTile() {
     }
   }
   if(emptyCells.length === 0) return;
-  
-  let currentMax = base;
-  if(tiles.length > 0) {
-    currentMax = Math.max(...tiles.map(t => t.value));
-  }
-  let allVals = [];
-  for (let i = 1; i <= 14; i++){
-    allVals.push(Math.pow(base, i));
-  }
-  let allProb = [0.88,0.1,0.01,0.005,0.002,0.001,0.0005,0.00025,0.00025,0.0002,0.00005,0.00003,0.00002,0.00002];
-  let vals = [], probs = [];
-  for(let i = 0; i < allVals.length; i++){
-    if(allVals[i] <= currentMax){
-      vals.push(allVals[i]);
-      probs.push(allProb[i]);
-    }
-  }
-  if(vals.length === 0) {
-    vals.push(base);
-    probs.push(1);
-  }
-  let sumP = probs.reduce((a, b) => a + b, 0);
-  let norm = probs.map(x => x / sumP);
-  let rand = Math.random(), cum = 0, chosen = vals[0];
-  for(let i = 0; i < norm.length; i++){
-    cum += norm[i];
-    if(rand <= cum) {
-      chosen = vals[i];
-      break;
-    }
-  }
   let pos = emptyCells[Math.floor(Math.random() * emptyCells.length)];
   tiles.push({
     id: ++tileID,
-    value: chosen,
+    value: base,       // 初始值为 base
+    n: 1,              // 初始等级为 1
     row: pos.r,
     col: pos.c,
     oldRow: pos.r,
@@ -414,9 +376,8 @@ function renderAllTiles(skipAnimation = false) {
   oldDOM.forEach(d => d.remove());
   tiles.forEach(t => {
     const div = document.createElement("div");
-    // 根据当前基数计算幂次，并添加对应样式类（tile-p1, tile-p2, …）
-    let exp = getExponent(t.value, base);
-    div.classList.add("tile", "tile-p" + exp);
+    // 根据 tile 的等级 n 添加对应的配色样式
+    div.classList.add("tile", "tile-n" + t.n);
     if(t.spawned) {
       div.classList.add("tile-pop");
       div.style.transitionDuration = "0.1s";

@@ -152,60 +152,60 @@
   }
 }
 
-/* 根据 tile 的指数设置配色（沿用原有颜色方案） */
-.tile-p1 {
+/* 根据 tile 的等级设置配色，沿用原有颜色方案 */
+.tile-n1 {
   background: #eee4da;
   color: #776e65;
 }
-.tile-p2 {
+.tile-n2 {
   background: #ede0c8;
   color: #776e65;
 }
-.tile-p3 {
+.tile-n3 {
   background: #f2b179;
   color: #f9f6f2;
 }
-.tile-p4 {
+.tile-n4 {
   background: #f59563;
   color: #f9f6f2;
 }
-.tile-p5 {
+.tile-n5 {
   background: #f67c5f;
   color: #f9f6f2;
 }
-.tile-p6 {
+.tile-n6 {
   background: #f65e3b;
   color: #f9f6f2;
 }
-.tile-p7 {
+.tile-n7 {
   background: #edcf72;
   color: #f9f6f2;
 }
-.tile-p8 {
+.tile-n8 {
   background: #edcc61;
   color: #f9f6f2;
 }
-.tile-p9 {
+.tile-n9 {
   background: #edc850;
   color: #f9f6f2;
 }
-.tile-p10 {
+.tile-n10 {
   background: #edc53f;
   color: #f9f6f2;
 }
-.tile-p11 {
+.tile-n11 {
   background: #edc22e;
   color: #f9f6f2;
 }
-.tile-p12 {
+.tile-n12 {
   background: #3c3a32;
   color: #f9f6f2;
 }
-.tile-p13 {
+.tile-n13 {
   background: #605d52;
   color: #f9f6f2;
 }
-.tile-p14 {
+.tile-n14 {
   background: #7a776c;
   color: #f9f6f2;
 }
