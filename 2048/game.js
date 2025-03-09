@@ -708,7 +708,7 @@ function findBestMove() {
     { move: moveRight },
     { move: moveUp },
   ];
-  const depth = 3; // 预搜索层数，可调为 3
+  const depth = 5; // 预搜索层数，可调为 3
   for (let candidate of moves) {
     let sim = simulateMoveOnState(candidate.move, tiles);
     if (!sim.moved) continue;
