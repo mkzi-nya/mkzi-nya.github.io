@@ -1,61 +1,76 @@
+// Version: 1
+
 // ============ 全局变量 ============
 
-// 默认 4x4
+// 默认 4x4 棋盘
 let side = 4;
-// 所有可能的最大随机值
-let maxTileCandidates = [2,4,8,16,32,64,128,256,512,1024,2048,4096,8192,16384];
-// 默认最大值指向 4
-let maxTileIndex = 1;
-
+let base = 2;  // 基数，可调范围 2-10
 let tiles = [];        // 当前所有方块，每个对象格式：{id, value, row, col, oldRow, oldCol, merged, spawned, mergedFrom}
-let tileID = 0;        // 用来给每个方块分配唯一ID
+let tileID = 0;        // 方块唯一ID
 let currentScore = 0;
 let bestScore = 0;
-let isGameStarted = false; // 只有开始游戏后才可操作
+let isGameStarted = false; // 游戏开始后才能操作
 
-// ================== 調整滑動靈敏度 ==================
 const SWIPE_THRESHOLD = 10;
+
+// 辅助函数：计算 val 为 base 的几次幂（保证 val 是 base 的幂）
+function getExponent(val, base) {
+  let exp = 0;
+  while(val >= base) {
+    val /= base;
+    exp++;
+  }
+  return exp;
+}
 
 // ============ 页面加载 ============
 window.addEventListener("DOMContentLoaded", () => {
-  // 从 localStorage 读取最高分
-  if(localStorage.getItem("bestScore")) {
-    bestScore = parseInt(localStorage.getItem("bestScore"));
-    document.getElementById("bestScore").innerText = bestScore;
+  // 从 localStorage 读取当前配置下最高分数
+  const bestScoreKey = "bestScore_" + side + "_" + base;
+  if(localStorage.getItem(bestScoreKey)) {
+    bestScore = parseInt(localStorage.getItem(bestScoreKey));
   }
-
+  document.getElementById("bestScore").innerText = bestScore;
+  
   // 初始化面板显示
   document.getElementById("spanSide").innerText = side;
-  document.getElementById("spanMaxTile").innerText = maxTileCandidates[maxTileIndex];
+  document.getElementById("spanBase").innerText = base;
 
-  // 生成一个初始背景格（仅显示背景，不生成方块）
   createGrid(side);
 
   // 绑定底部调节按钮
   document.getElementById("btnSideMinus").addEventListener("click", () => changeSide(-1));
   document.getElementById("btnSidePlus").addEventListener("click", () => changeSide(+1));
-  document.getElementById("btnMaxMinus").addEventListener("click", () => changeMaxTile(-1));
-  document.getElementById("btnMaxPlus").addEventListener("click", () => changeMaxTile(+1));
+  document.getElementById("btnBaseMinus").addEventListener("click", () => changeBase(-1));
+  document.getElementById("btnBasePlus").addEventListener("click", () => changeBase(+1));
 
   document.getElementById("btnApply").addEventListener("click", applySettings);
   document.getElementById("btnRestart").addEventListener("click", restartGame);
   document.getElementById("btnDarkMode").addEventListener("click", toggleDarkMode);
+  
+  // 绑定存档导出/导入按钮
+  document.getElementById("btnExport").addEventListener("click", exportSave);
+  document.getElementById("btnImport").addEventListener("click", () => {
+    document.getElementById("fileInput").click();
+  });
+  document.getElementById("fileInput").addEventListener("change", importSave);
 
-  // 只在網格容器上禁止觸摸滾動
+  // 禁止触摸滚动
   const gridContainer = document.getElementById("gridContainer");
   gridContainer.addEventListener("touchmove", (e)=> e.preventDefault(), {passive:false});
+
+  // 检查暗色模式设置
+  if (localStorage.getItem("darkMode") === "true") {
+    document.body.classList.add("dark-mode");
+  }
 });
 
 // ============ 创建背景格子 ============
 function createGrid(s) {
   const gridContainer = document.getElementById("gridContainer");
   gridContainer.innerHTML = "";
-
-  // 设置网格行列
   gridContainer.style.gridTemplateRows = `repeat(${s}, 1fr)`;
   gridContainer.style.gridTemplateColumns = `repeat(${s}, 1fr)`;
-
-  // 生成背景格
   for(let i = 0; i < s; i++){
     for(let j = 0; j < s; j++){
       const cell = document.createElement("div");
@@ -65,87 +80,82 @@ function createGrid(s) {
   }
 }
 
-// ============ 改变边长 ============
+// ============ 改变棋盘边长 ============
 function changeSide(delta) {
-  if(isGameStarted) return; // 游戏开始后不允许调整
+  if(isGameStarted) return;
   let newVal = side + delta;
   if(newVal < 2) newVal = 2;
   if(newVal > 10) newVal = 10;
   side = newVal;
   document.getElementById("spanSide").innerText = side;
+  // 更新最高分显示
+  const bestScoreKey = "bestScore_" + side + "_" + base;
+  let stored = localStorage.getItem(bestScoreKey);
+  document.getElementById("bestScore").innerText = stored ? stored : "0";
   createGrid(side);
 }
 
-// ============ 改变最大随机值 ============
-function changeMaxTile(delta) {
+// ============ 改变基数 ============
+function changeBase(delta) {
   if(isGameStarted) return;
-  maxTileIndex += delta;
-  if(maxTileIndex < 0) maxTileIndex = 0;
-  if(maxTileIndex >= maxTileCandidates.length) {
-    maxTileIndex = maxTileCandidates.length - 1;
-  }
-  document.getElementById("spanMaxTile").innerText = maxTileCandidates[maxTileIndex];
+  let newBase = base + delta;
+  if(newBase < 2) newBase = 2;
+  if(newBase > 10) newBase = 10;
+  base = newBase;
+  document.getElementById("spanBase").innerText = base;
+  // 更新最高分显示
+  const bestScoreKey = "bestScore_" + side + "_" + base;
+  let stored = localStorage.getItem(bestScoreKey);
+  document.getElementById("bestScore").innerText = stored ? stored : "0";
 }
 
 // ============ 点击“开始游戏” ============
 function applySettings() {
   if(isGameStarted) return;
   isGameStarted = true;
-  // 禁用调节按钮，开始游戏后不能修改
   document.getElementById("btnSideMinus").disabled = true;
   document.getElementById("btnSidePlus").disabled = true;
-  document.getElementById("btnMaxMinus").disabled = true;
-  document.getElementById("btnMaxPlus").disabled = true;
+  document.getElementById("btnBaseMinus").disabled = true;
+  document.getElementById("btnBasePlus").disabled = true;
   document.getElementById("btnApply").disabled = true;
 
+  const bestScoreKey = "bestScore_" + side + "_" + base;
+  if(localStorage.getItem(bestScoreKey)) {
+    bestScore = parseInt(localStorage.getItem(bestScoreKey));
+  } else {
+    bestScore = 0;
+  }
+  document.getElementById("bestScore").innerText = bestScore;
   setupGame();
 }
 
 // ============ 初始化/重置游戏 ============
 function setupGame() {
-  // 重置分数
   currentScore = 0;
   document.getElementById("currentScore").innerText = "0";
-
-  // 清空方块数据
   tiles = [];
   tileID = 0;
-
-  // 重建背景格
   createGrid(side);
-
-  // 随机生成2个初始方块（可不做特效）
   spawnRandomTile();
   spawnRandomTile();
-
-  // 绑定输入事件（键盘和滑动）
   initInputEvents();
-
-  // 首次渲染时不需要动画
   renderAllTiles(true);
 }
 
 // ============ 重新开始 ============
 function restartGame() {
-  // 允许重新调整：恢复调节按钮状态
   isGameStarted = false;
   document.getElementById("btnSideMinus").disabled = false;
   document.getElementById("btnSidePlus").disabled = false;
-  document.getElementById("btnMaxMinus").disabled = false;
-  document.getElementById("btnMaxPlus").disabled = false;
+  document.getElementById("btnBaseMinus").disabled = false;
+  document.getElementById("btnBasePlus").disabled = false;
   document.getElementById("btnApply").disabled = false;
-
-  // 清空分数与方块数据
   tiles = [];
   tileID = 0;
   currentScore = 0;
   document.getElementById("currentScore").innerText = "0";
-
-  // 移除 DOM 中的所有方块
   const oldTiles = document.querySelectorAll(".tile");
   oldTiles.forEach(t => t.remove());
-
-  // 重建背景格
   createGrid(side);
 }
 
@@ -155,14 +165,6 @@ function toggleDarkMode() {
   localStorage.setItem("darkMode", document.body.classList.contains("dark-mode"));
 }
 
-// 页面加载时检查是否启用暗色模式
-window.addEventListener("DOMContentLoaded", () => {
-  if (localStorage.getItem("darkMode") === "true") {
-    document.body.classList.add("dark-mode");
-  }
-});
-
-
 // ============ 分数更新 ============
 function updateScore(add) {
   currentScore += add;
@@ -170,18 +172,16 @@ function updateScore(add) {
   if(currentScore > bestScore) {
     bestScore = currentScore;
     document.getElementById("bestScore").innerText = bestScore;
-    localStorage.setItem("bestScore", bestScore);
+    const bestScoreKey = "bestScore_" + side + "_" + base;
+    localStorage.setItem(bestScoreKey, bestScore);
   }
 }
 
-// ============ 输入事件（键盘+滑动） ============
-
+// ============ 输入事件（键盘+触摸） ============
 let inputInited = false;
 function initInputEvents() {
   if(inputInited) return;
   inputInited = true;
-
-  // 鍵盤事件
   document.addEventListener("keydown", (e) => {
     if(!isGameStarted) return;
     let moved = false;
@@ -193,10 +193,7 @@ function initInputEvents() {
       default: return;
     }
     if(moved) {
-      // 先執行移動動畫
       renderAllTiles();
-
-      // 0.2 秒後：更新 oldRow/oldCol、生成新方塊、再次渲染、判斷遊戲結束
       setTimeout(() => {
         finalizePositions();
         spawnRandomTile();
@@ -205,11 +202,8 @@ function initInputEvents() {
       }, 200);
     }
   });
-
-  // 觸摸事件
   const gridContainer = document.getElementById("gridContainer");
   let startX = 0, startY = 0;
-
   gridContainer.addEventListener("touchstart", (e) => {
     if(!isGameStarted) return;
     if(e.touches.length > 0) {
@@ -217,7 +211,6 @@ function initInputEvents() {
       startY = e.touches[0].clientY;
     }
   }, {passive:false});
-
   gridContainer.addEventListener("touchend", (e) => {
     if(!isGameStarted) return;
     if(e.changedTouches.length > 0) {
@@ -245,7 +238,7 @@ function initInputEvents() {
   }, {passive:false});
 }
 
-// 將所有方塊的 oldRow/oldCol 更新為當前位置，並清除 merged 狀態
+// 更新所有方块位置与状态
 function finalizePositions() {
   tiles.forEach(t => {
     t.oldRow = t.row;
@@ -255,7 +248,6 @@ function finalizePositions() {
 }
 
 // ============ 移动与合并逻辑 ============
-
 function moveLeft(){
   tiles.forEach(t => { t.oldRow = t.row; t.oldCol = t.col; t.merged = false; });
   let moved = false;
@@ -301,37 +293,25 @@ function moveDown(){
 }
 
 /**
- * 將一行 / 一列的方塊按照方向進行合併
- * lineTiles 為同一行或同一列、且已按壓縮方向排序好的陣列
+ * 合并一行或一列的方块
  */
 function compressLine(lineTiles, direction) {
   if(lineTiles.length === 0) return false;
-
   let changed = false;
   let newLine = [];
   let skip = false;
-
   for (let i = 0; i < lineTiles.length; i++) {
-    if(skip) {
-      skip = false;
-      continue;
-    }
-    // 檢查是否可合併
+    if(skip) { skip = false; continue; }
     if(i < lineTiles.length - 1 && lineTiles[i].value === lineTiles[i+1].value) {
       let targetTile = lineTiles[i];
       let mergingTile = lineTiles[i+1];
-      targetTile.value *= 2;
+      targetTile.value *= base;
       updateScore(targetTile.value);
-
       targetTile.merged = true;
-      // 記錄合併來源，用於渲染動畫時從 mergingTile 的舊位置飛過來
       targetTile.mergedFrom = { row: mergingTile.row, col: mergingTile.col };
-      // 強制將合併後 tile 的 oldRow/oldCol 設成被合併的那個位置
       targetTile.oldRow = mergingTile.row;
       targetTile.oldCol = mergingTile.col;
-
       newLine.push(targetTile);
-      // 移除被合併的 tile
       tiles = tiles.filter(x => x.id !== mergingTile.id);
       skip = true;
       changed = true;
@@ -339,8 +319,6 @@ function compressLine(lineTiles, direction) {
       newLine.push(lineTiles[i]);
     }
   }
-
-  // 根據方向重排最終的 row/col
   if(direction === "left") {
     for (let i = 0; i < newLine.length; i++) {
       let tile = newLine[i];
@@ -370,7 +348,6 @@ function compressLine(lineTiles, direction) {
       if(tile.row !== oldRow) changed = true;
     }
   }
-
   return changed;
 }
 
@@ -378,23 +355,33 @@ function compressLine(lineTiles, direction) {
 function spawnRandomTile() {
   let emptyCells = [];
   for (let r = 0; r < side; r++) {
-    for (let c = 0; c < side; c++) {
+    for (let c = 0; c < side; c++){
       if(!tiles.some(t => t.row === r && t.col === c)) {
         emptyCells.push({ r, c });
       }
     }
   }
   if(emptyCells.length === 0) return;
-
-  let maxRandomVal = maxTileCandidates[maxTileIndex];
-  let allVals = [2,4,8,16,32,64,128,256,512,1024,2048,4096,8192,16384];
+  
+  let currentMax = base;
+  if(tiles.length > 0) {
+    currentMax = Math.max(...tiles.map(t => t.value));
+  }
+  let allVals = [];
+  for (let i = 1; i <= 14; i++){
+    allVals.push(Math.pow(base, i));
+  }
   let allProb = [0.88,0.1,0.01,0.005,0.002,0.001,0.0005,0.00025,0.00025,0.0002,0.00005,0.00003,0.00002,0.00002];
   let vals = [], probs = [];
   for(let i = 0; i < allVals.length; i++){
-    if(allVals[i] <= maxRandomVal){
+    if(allVals[i] <= currentMax){
       vals.push(allVals[i]);
       probs.push(allProb[i]);
     }
+  }
+  if(vals.length === 0) {
+    vals.push(base);
+    probs.push(1);
   }
   let sumP = probs.reduce((a, b) => a + b, 0);
   let norm = probs.map(x => x / sumP);
@@ -406,7 +393,6 @@ function spawnRandomTile() {
       break;
     }
   }
-
   let pos = emptyCells[Math.floor(Math.random() * emptyCells.length)];
   tiles.push({
     id: ++tileID,
@@ -416,25 +402,21 @@ function spawnRandomTile() {
     oldRow: pos.r,
     oldCol: pos.c,
     merged: false,
-    spawned: true  // 用於生成動畫
+    spawned: true
   });
 }
 
-// ============ 渲染方块（含平滑移动与弹出动画） ============
+// ============ 渲染方块 ============
 function renderAllTiles(skipAnimation = false) {
   const container = document.getElementById("gridContainer");
   const bgCells = container.querySelectorAll(".grid-cell");
-
-  // 移除旧的 DOM 方块
   const oldDOM = container.querySelectorAll(".tile");
   oldDOM.forEach(d => d.remove());
-
-  // 根據現在的 tiles 狀態，重新生成 DOM
   tiles.forEach(t => {
     const div = document.createElement("div");
-    div.classList.add("tile", `tile-${t.value}`);
-
-    // 調整動畫時間：生成 0.1s，合併 0.2s，其餘也 0.2s
+    // 根据当前基数计算幂次，并添加对应样式类（tile-p1, tile-p2, …）
+    let exp = getExponent(t.value, base);
+    div.classList.add("tile", "tile-p" + exp);
     if(t.spawned) {
       div.classList.add("tile-pop");
       div.style.transitionDuration = "0.1s";
@@ -444,26 +426,17 @@ function renderAllTiles(skipAnimation = false) {
     } else {
       div.style.transitionDuration = "0.2s";
     }
-
     div.innerText = t.value;
-
-    // 初始位置（視覺上）先放在 oldRow/oldCol
     let oldRect = getCellRect(bgCells, t.oldRow, t.oldCol);
     div.style.width = oldRect.width + "px";
     div.style.height = oldRect.height + "px";
     div.style.left = oldRect.left + "px";
     div.style.top = oldRect.top + "px";
     div.style.fontSize = Math.floor(oldRect.width * 0.4) + "px";
-
     container.appendChild(div);
   });
-
-  // 首次渲染或 skipAnimation 時，直接跳到新位置，不播放動畫
   if(skipAnimation) {
-    tiles.forEach(t => {
-      t.oldRow = t.row;
-      t.oldCol = t.col;
-    });
+    tiles.forEach(t => { t.oldRow = t.row; t.oldCol = t.col; });
     tiles.forEach((t, idx) => {
       let tileDiv = container.querySelectorAll(".tile")[idx];
       let newRect = getCellRect(bgCells, t.row, t.col);
@@ -475,8 +448,6 @@ function renderAllTiles(skipAnimation = false) {
     });
     return;
   }
-
-  // 否則啟動 CSS transition，讓方塊從舊位置平移到新位置
   requestAnimationFrame(() => {
     tiles.forEach((t, idx) => {
       let tileDiv = container.querySelectorAll(".tile")[idx];
@@ -488,12 +459,10 @@ function renderAllTiles(skipAnimation = false) {
       tileDiv.style.fontSize = Math.floor(newRect.width * 0.4) + "px";
     });
   });
-
-  // 清除新生成標記，確保生成動畫只播一次
   tiles.forEach(t => { t.spawned = false; });
 }
 
-// 輔助：計算某行 row、某列 col 的背景方塊相對 container 的位置與大小
+// 辅助：获取格子位置信息
 function getCellRect(bgCells, row, col) {
   const index = row * side + col;
   const cellElem = bgCells[index];
@@ -510,9 +479,7 @@ function getCellRect(bgCells, row, col) {
 
 // ============ 检查游戏结束 ============
 function checkGameOver() {
-  // 如果还有空格子，则未结束
   if(tiles.length < side * side) return;
-  // 检查是否有可合并的相邻同值方塊
   for(let i = 0; i < tiles.length; i++){
     for(let j = i + 1; j < tiles.length; j++){
       let a = tiles[i], b = tiles[j];
@@ -523,4 +490,82 @@ function checkGameOver() {
     }
   }
   alert("游戏结束！最终分数：" + currentScore);
+}
+
+// ============ 存档导出 ============
+function exportSave() {
+  let bestScores = {};
+  for(let key in localStorage) {
+    if(key.startsWith("bestScore_")) {
+      bestScores[key] = localStorage.getItem(key);
+    }
+  }
+  let saveData = {
+    version: 1,
+    bestScores: bestScores,
+    currentGame: {
+      isGameStarted: isGameStarted,
+      currentScore: currentScore,
+      side: side,
+      base: base,
+      tileID: tileID,
+      tiles: tiles,
+      darkMode: document.body.classList.contains("dark-mode")
+    }
+  };
+  let dataStr = JSON.stringify(saveData);
+  let blob = new Blob([dataStr], {type: "application/json"});
+  let url = URL.createObjectURL(blob);
+  let a = document.createElement("a");
+  a.href = url;
+  a.download = "2048_save.json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ============ 存档导入 ============
+function importSave(e) {
+  let file = e.target.files[0];
+  if (!file) return;
+  let reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      let data = JSON.parse(evt.target.result);
+      if(data.version !== 1) {
+        alert("存档版本不匹配！");
+        return;
+      }
+      for(let key in data.bestScores) {
+        localStorage.setItem(key, data.bestScores[key]);
+      }
+      let game = data.currentGame;
+      isGameStarted = game.isGameStarted;
+      currentScore = game.currentScore;
+      side = game.side;
+      base = game.base;
+      tileID = game.tileID;
+      tiles = game.tiles;
+      if(game.darkMode) {
+        document.body.classList.add("dark-mode");
+      } else {
+        document.body.classList.remove("dark-mode");
+      }
+      document.getElementById("spanSide").innerText = side;
+      document.getElementById("spanBase").innerText = base;
+      const bestScoreKey = "bestScore_" + side + "_" + base;
+      let stored = localStorage.getItem(bestScoreKey);
+      document.getElementById("bestScore").innerText = stored ? stored : "0";
+      document.getElementById("currentScore").innerText = currentScore;
+      createGrid(side);
+      renderAllTiles(true);
+      if(!inputInited) {
+        initInputEvents();
+      }
+    } catch(err) {
+      alert("读取存档失败！");
+    }
+  };
+  reader.readAsText(file);
 }

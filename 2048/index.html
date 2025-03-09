@@ -14,18 +14,27 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      overscroll-behavior: none; /* 禁用安卓回弹 */
-      -webkit-touch-callout: none; /* 禁用长按弹出 */
-      -webkit-user-select: none;   /* 禁用文字选中 */
+      overscroll-behavior: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
       user-select: none;
-      touch-action: none;          /* 禁用双击缩放等 */
+      touch-action: none;
+    }
+    /* 提升标题位置 */
+    .title {
+      margin-top: -50px; /* 负 margin 提升标题 */
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #888;
+      margin-bottom: 20px;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>2048</h1>
-
+    <h1 class="title">2048</h1>
+    <p class="subtitle">by mkzi_nya</p>
     <div class="controls">
       <div class="score-panel">
         <div class="score-box">
@@ -42,10 +51,7 @@
         <button id="btnDarkMode">暗色模式</button>
       </div>
     </div>
-
-    <!-- 让棋盘占满 95% 屏幕 -->
     <div id="gridContainer" class="grid-container"></div>
-
     <div class="custom-panel-bottom">
       <div class="panel-section">
         <span>棋盘边长：</span>
@@ -54,17 +60,21 @@
         <button id="btnSidePlus">+</button>
       </div>
       <div class="panel-section">
-        <span>最大随机值：</span>
-        <button id="btnMaxMinus">-</button>
-        <span id="spanMaxTile">4</span>
-        <button id="btnMaxPlus">+</button>
+        <span>基数：</span>
+        <button id="btnBaseMinus">-</button>
+        <span id="spanBase">2</span>
+        <button id="btnBasePlus">+</button>
       </div>
       <div class="panel-section">
         <button id="btnApply">开始游戏</button>
       </div>
+      <div class="panel-section">
+        <button id="btnExport">导出存档</button>
+        <button id="btnImport">导入存档</button>
+        <input type="file" id="fileInput" style="display:none" accept="application/json">
+      </div>
     </div>
   </div>
-
   <script src="./game.js"></script>
 </body>
 </html>
