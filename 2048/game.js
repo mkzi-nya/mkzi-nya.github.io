@@ -530,3 +530,79 @@ function importSave(e) {
   };
   reader.readAsText(file);
 }
+
+let autoPlay = false;
+
+function autoMove() {
+  if (!autoPlay || !isGameStarted) return;
+  
+  let bestMove = findBestMove();
+  if (bestMove) {
+    bestMove();
+    renderAllTiles();
+    setTimeout(() => {
+      finalizePositions();
+      spawnRandomTile();
+      renderAllTiles();
+      checkGameOver();
+      setTimeout(autoMove, 0);  // 继续自动执行
+    }, 0);
+  } else {
+    autoPlay = false;
+    alert("游戏结束！");
+  }
+}
+
+function findBestMove() {
+  let moves = [
+    { move: moveLeft, priority: evaluateMove(moveLeft) },
+    { move: moveRight, priority: evaluateMove(moveRight) },
+    { move: moveUp, priority: evaluateMove(moveUp) },
+    { move: moveDown, priority: evaluateMove(moveDown) },
+  ];
+
+  // 按优先级排序（优先选高分方案）
+  moves.sort((a, b) => b.priority - a.priority);
+  
+  if (moves[0].priority > 0) return moves[0].move;
+  return null; // 如果所有方向都无效，则返回 null
+}
+
+function evaluateMove(moveFunc) {
+  let originalTiles = JSON.stringify(tiles);
+  let moved = moveFunc();
+  let score = 0;
+
+  if (moved) {
+    let largestTile = Math.max(...tiles.map(t => t.value));
+    let gridScore = calculateGridScore();
+    score = gridScore + largestTile;
+  }
+
+  tiles = JSON.parse(originalTiles); // 还原棋盘状态
+  return score;
+}
+
+function calculateGridScore() {
+  let score = 0;
+  
+  for (let row = 0; row < side; row++) {
+    for (let col = 0; col < side; col++) {
+      let tile = tiles.find(t => t.row === row && t.col === col);
+      if (tile) {
+        let weight = (side - row) * 10 + (side - col); // 让大数靠近左下角
+        score += tile.value * weight;
+      }
+    }
+  }
+  
+  return score;
+}
+
+// 绑定自动模式按钮
+document.getElementById("btnAutoPlay").addEventListener("click", () => {
+  autoPlay = !autoPlay;
+  if (autoPlay) {
+    autoMove();
+  }
+});
