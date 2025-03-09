@@ -184,7 +184,7 @@ onmessage = function (event) {
   let grid = data.grid;
   let minProb = data.minProb;
   // 设定搜索深度，可根据需要调整（此处设置为 3）
-  let depth = 3;
+  let depth = 4;
   let bestMove = chooseBestMove(grid, minProb, depth);
   postMessage(bestMove);
 };
