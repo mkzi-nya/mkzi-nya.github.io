@@ -202,13 +202,86 @@
   color: #f9f6f2;
 }
 .tile-n13 {
-  background: #605d52;
+  background: #32312b;
   color: #f9f6f2;
 }
 .tile-n14 {
-  background: #7a776c;
+  background: #292822;
   color: #f9f6f2;
 }
+.tile-n15 {
+  background: #211f1b;
+  color: #f9f6f2;
+}
+.tile-n16 {
+  background: #181715;
+  color: #f9f6f2;
+}
+.tile-n17 {
+  background: #100f0d;
+  color: #f9f6f2;
+}
+.tile-n18 {
+  background: #080807;
+  color: #f9f6f2;
+}
+.tile-n19 {
+  background: #040404;
+  color: #f9f6f2;
+}
+.tile-n20 {
+  background: #020202;
+  color: #f9f6f2;
+}
+.tile-n21 {
+  background: #000000;
+  color: #f9f6f2;
+}
+.tile-n22 {
+  background: #001f3f;
+  color: #f9f6f2;
+}
+.tile-n23 {
+  background: #003366;
+  color: #f9f6f2;
+}
+.tile-n24 {
+  background: #004080;
+  color: #f9f6f2;
+}
+.tile-n25 {
+  background: #00509e;
+  color: #f9f6f2;
+}
+.tile-n26 {
+  background: #0066cc;
+  color: #f9f6f2;
+}
+.tile-n27 {
+  background: #0073e6;
+  color: #f9f6f2;
+}
+.tile-n28 {
+  background: #0080ff;
+  color: #f9f6f2;
+}
+.tile-n29 {
+  background: #3399ff;
+  color: #f9f6f2;
+}
+.tile-n30 {
+  background: #66b2ff;
+  color: #f9f6f2;
+}
+.tile-n31 {
+  background: #99ccff;
+  color: #f9f6f2;
+}
+.tile-n32 {
+  background: #cce5ff;
+  color: #f9f6f2;
+}
+
 
 /* 暗色模式 */
 body.dark-mode {
