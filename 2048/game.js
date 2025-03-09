@@ -379,18 +379,68 @@ function compressLine(lineTiles, direction) {
 function spawnRandomTile() {
   let emptyCells = [];
   for (let r = 0; r < side; r++) {
-    for (let c = 0; c < side; c++){
-      if(!tiles.some(t => t.row === r && t.col === c)) {
+    for (let c = 0; c < side; c++) {
+      if (!tiles.some(t => t.row === r && t.col === c)) {
         emptyCells.push({ r, c });
       }
     }
   }
-  if(emptyCells.length === 0) return;
+  if (emptyCells.length === 0) return;
   let pos = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+
+  let chosenLevel = 1;  // 默认生成 n1
+  if (side <= 5) {
+    // 棋盘较小时，80% n1，20% n2
+    chosenLevel = (Math.random() < 0.8) ? 1 : 2;
+  } else {
+    // 棋盘大于 5 时，允许生成 n1 ~ (当前最大 tile 的等级 - 2)，最小为 n1
+    // 先确定当前最大 tile 的等级
+    let currentMax = base;
+    if (tiles.length > 0) {
+      currentMax = Math.max(...tiles.map(t => t.value));
+    }
+    let maxLevel = 1;
+    if (currentMax > base) {
+      maxLevel = Math.floor(Math.log(currentMax / base) / Math.log(2)) + 1;
+    }
+    let allowedMax = maxLevel - 2;
+    if (allowedMax < 1) allowedMax = 1;
+
+    // 构建等级概率分布：n1 固定 80%，n2 固定 10%，n3 开始每一级为前一级的一半，最低不低于 0.0002
+    let probs = {};
+    probs[1] = 0.8;
+    if (allowedMax >= 2) {
+      probs[2] = 0.1;
+    }
+    for (let i = 3; i <= allowedMax; i++) {
+      let p = probs[i - 1] / 2;
+      if (p < 0.0002) {
+        p = 0.0002;
+      }
+      probs[i] = p;
+    }
+    // 归一化概率
+    let total = 0;
+    for (let i = 1; i <= allowedMax; i++) {
+      total += probs[i];
+    }
+    let r = Math.random() * total;
+    let cumulative = 0;
+    for (let i = 1; i <= allowedMax; i++) {
+      cumulative += probs[i];
+      if (r < cumulative) {
+        chosenLevel = i;
+        break;
+      }
+    }
+  }
+
+  // 计算 tile 数值： value = base * 2^(level-1)
+  let chosenValue = base * Math.pow(2, chosenLevel - 1);
   tiles.push({
     id: ++tileID,
-    value: base,
-    n: 1,
+    value: chosenValue,
+    n: chosenLevel,
     row: pos.r,
     col: pos.c,
     oldRow: pos.r,
@@ -399,6 +449,7 @@ function spawnRandomTile() {
     spawned: true
   });
 }
+
 
 // ============ 渲染方块 ============
 function renderAllTiles(skipAnimation = false) {
