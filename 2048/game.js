@@ -1,4 +1,5 @@
 // Version: 1
+// 本代码实现：自动游玩时，如果棋盘边长 < 7 则使用 worker.js 算法，否则使用预搜索算法
 
 // ============ 全局变量 ============
 let side = 4;
@@ -11,8 +12,11 @@ let isGameStarted = false; // 游戏开始后才能操作
 
 const SWIPE_THRESHOLD = 10;
 
+// AI 相关变量：worker.js 版本需要
+let aiWorker = new Worker("worker.js");
+let aiStrength = 8;  // AI 强度（用于 worker 算法的概率阈值映射）
+
 // ===== 辅助函数：格式化数值 =====
-// 如果数值大于等于 1 万，则除以 1000 向下取整，并在末尾加上 "k"
 function formatNumber(n) {
   if(n >= 10000) {
     return Math.floor(n / 1024) + "k";
@@ -21,22 +25,46 @@ function formatNumber(n) {
   }
 }
 
+// ===== getMinProb：返回 worker 算法所用的最小概率阈值 =====
+function getMinProb() {
+  const probMap = {
+    1: 0.02,
+    2: 0.01,
+    3: 0.005,
+    4: 0.003,
+    5: 0.002,
+    6: 0.001,
+    7: 0.0005,
+    8: 0.0003,
+    9: 0.0002,
+    10: 0.0001,
+  };
+  return probMap[aiStrength] || 0.001;
+}
+
+// ===== executeMove：根据方向执行移动 =====
+// 方向 0: Up, 1: Right, 2: Down, 3: Left
+function executeMove(direction) {
+  let moveFunctions = [moveUp, moveRight, moveDown, moveLeft];
+  let moveFunc = moveFunctions[direction];
+  if (moveFunc) {
+    moveFunc();
+  }
+}
+
 // ============ 页面加载 ============
 window.addEventListener("DOMContentLoaded", () => {
-  // 从 localStorage 读取当前配置下的最高分数
   const bestScoreKey = "bestScore_" + side + "_" + base;
   if(localStorage.getItem(bestScoreKey)) {
     bestScore = parseInt(localStorage.getItem(bestScoreKey));
   }
   document.getElementById("bestScore").innerText = formatNumber(bestScore);
   
-  // 初始化面板显示
   document.getElementById("spanSide").innerText = side;
   document.getElementById("spanBase").innerText = base;
 
   createGrid(side);
 
-  // 绑定调节按钮
   document.getElementById("btnSideMinus").addEventListener("click", () => changeSide(-1));
   document.getElementById("btnSidePlus").addEventListener("click", () => changeSide(+1));
   document.getElementById("btnBaseMinus").addEventListener("click", () => changeBase(-1));
@@ -46,18 +74,15 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnRestart").addEventListener("click", restartGame);
   document.getElementById("btnDarkMode").addEventListener("click", toggleDarkMode);
   
-  // 绑定存档导出/导入按钮
   document.getElementById("btnExport").addEventListener("click", exportSave);
   document.getElementById("btnImport").addEventListener("click", () => {
     document.getElementById("fileInput").click();
   });
   document.getElementById("fileInput").addEventListener("change", importSave);
 
-  // 禁止触摸滚动
   const gridContainer = document.getElementById("gridContainer");
   gridContainer.addEventListener("touchmove", (e)=> e.preventDefault(), {passive:false});
 
-  // 检查暗色模式设置
   if (localStorage.getItem("darkMode") === "true") {
     document.body.classList.add("dark-mode");
   }
@@ -86,7 +111,6 @@ function changeSide(delta) {
   if(newVal > 10) newVal = 10;
   side = newVal;
   document.getElementById("spanSide").innerText = side;
-  // 更新当前配置下的最高分显示
   const bestScoreKey = "bestScore_" + side + "_" + base;
   let stored = localStorage.getItem(bestScoreKey);
   document.getElementById("bestScore").innerText = stored ? formatNumber(parseInt(stored)) : "0";
@@ -101,7 +125,6 @@ function changeBase(delta) {
   if(newBase > 10) newBase = 10;
   base = newBase;
   document.getElementById("spanBase").innerText = base;
-  // 更新当前配置下的最高分显示
   const bestScoreKey = "bestScore_" + side + "_" + base;
   let stored = localStorage.getItem(bestScoreKey);
   document.getElementById("bestScore").innerText = stored ? formatNumber(parseInt(stored)) : "0";
@@ -111,7 +134,6 @@ function changeBase(delta) {
 function applySettings() {
   if(isGameStarted) return;
   isGameStarted = true;
-  // 禁用调节按钮
   document.getElementById("btnSideMinus").disabled = true;
   document.getElementById("btnSidePlus").disabled = true;
   document.getElementById("btnBaseMinus").disabled = true;
@@ -165,7 +187,6 @@ function toggleDarkMode() {
 }
 
 // ============ 分数更新 ============
-// 第一处 updateScore 定义
 function updateScore(add) {
   currentScore += add;
   document.getElementById("currentScore").innerText = formatNumber(currentScore);
@@ -368,8 +389,8 @@ function spawnRandomTile() {
   let pos = emptyCells[Math.floor(Math.random() * emptyCells.length)];
   tiles.push({
     id: ++tileID,
-    value: base,       // 初始值为 base
-    n: 1,              // 初始等级为 1
+    value: base,
+    n: 1,
     row: pos.r,
     col: pos.c,
     oldRow: pos.r,
@@ -387,7 +408,6 @@ function renderAllTiles(skipAnimation = false) {
   oldDOM.forEach(d => d.remove());
   tiles.forEach(t => {
     const div = document.createElement("div");
-    // 根据 tile 的等级 n 添加对应的配色样式
     div.classList.add("tile", "tile-n" + t.n);
     if(t.spawned) {
       div.classList.add("tile-pop");
@@ -542,145 +562,34 @@ function importSave(e) {
   reader.readAsText(file);
 }
 
-// ======== AI 评分变量（独立于网站显示分数） ========
-let aiScore = 0;
+// ======== 以下为 AI 自动游玩及模拟预搜索算法 ============
+let aiSimScore = 0;
+let autoPlay = false;
+let simulateMode = false;
 
-// 自动移动函数（AI 评分独立，不影响 currentScore）
-function autoMove() {
-  if (!autoPlay || !isGameStarted) return;
-  
-  let bestMove = findBestMove();
-  if (bestMove) {
-    bestMove(); // 执行最佳移动
-    renderAllTiles();
-    finalizePositions();
-    spawnRandomTile();
-    renderAllTiles();
-    checkGameOver();
-    setTimeout(autoMove, 0);  // 无延时，最快速度继续自动移动
-  } else {
-    autoPlay = false;
-    alert("游戏结束！");
-  }
-}
-
-// 在不改变全局状态的情况下模拟一次移动
+// 在不改变全局状态下模拟一次移动
 function simulateMoveOnState(moveFunc, state) {
   let backup = tiles;
-  tiles = JSON.parse(JSON.stringify(state)); // 备份状态
-  let moved = moveFunc();
-  let newState = JSON.parse(JSON.stringify(tiles));
-  tiles = backup; // 还原状态
-  return { moved, newState };
-}
-
-// AI 评估某个状态（独立评分，不影响 currentScore）
-function evaluateState(state) {
-  let score = 0;
-  for (let row = 0; row < side; row++) {
-    for (let col = 0; col < side; col++) {
-      let tile = state.find(t => t.row === row && t.col === col);
-      if (tile) {
-        // 计算离左下角的距离：越靠近左下角，评分越高
-        let distanceFromBottomLeft = (side - row) * 10 + (side - col);
-        score += tile.value * distanceFromBottomLeft;
-      }
-    }
-  }
-  // 如果左下角 (side-1, 0) 存在最大数字，则给予额外奖励
-  let largestTile = Math.max(...state.map(t => t.value));
-  let bottomLeftTile = state.find(t => t.row === side - 1 && t.col === 0);
-  if (bottomLeftTile && bottomLeftTile.value === largestTile) {
-    score += 5000;
-  }
-  return score;
-}
-
-// 递归搜索函数：预搜索 depth 层后返回最佳评分
-function search(depth, state) {
-  if (depth === 0) {
-    return evaluateState(state);  // AI 评分
-  }
-  let bestScore = -Infinity;
-  let moves = [moveDown, moveLeft, moveRight, moveUp];  // 优先向左下角
-  for (let moveFunc of moves) {
-    let sim = simulateMoveOnState(moveFunc, state);
-    if (!sim.moved) continue;
-    let score = search(depth - 1, sim.newState);
-    if (score > bestScore) {
-      bestScore = score;
-    }
-  }
-  return bestScore;
-}
-
-// ======== 模拟与 AI 预搜索相关的全局变量 ========
-let simulateMode = false; // 模拟模式标记
-let aiSimScore = 0;       // 模拟过程中使用的隐藏得分，不显示在网页积分榜上
-let autoPlay = false;     // 自动游玩开关
-
-// ======== 修改 updateScore 函数 ========
-// 当 simulateMode 为 true 时，不更新网页显示的分数，而是将得分累加到 aiSimScore 上
-function updateScore(add) {
-  if (simulateMode) {
-    aiSimScore += add;
-  } else {
-    currentScore += add;
-    document.getElementById("currentScore").innerText = formatNumber(currentScore);
-    if (currentScore > bestScore) {
-      bestScore = currentScore;
-      document.getElementById("bestScore").innerText = formatNumber(bestScore);
-      const bestScoreKey = "bestScore_" + side + "_" + base;
-      localStorage.setItem(bestScoreKey, bestScore);
-    }
-  }
-}
-
-// ======== 模拟移动与预搜索 ========
-
-// 在不改变全局状态的情况下模拟一次移动
-function simulateMoveOnState(moveFunc, state) {
-  // 备份当前全局状态
-  let backupTiles = tiles;
-  let backupScore = currentScore;
-  let backupSimulateMode = simulateMode;
-  let backupAiSimScore = aiSimScore;
-  
-  // 启用模拟模式，清空隐藏得分
-  simulateMode = true;
-  aiSimScore = 0;
-  
-  // 用深拷贝设置模拟状态（不改变实际游戏状态）
   tiles = JSON.parse(JSON.stringify(state));
   let moved = moveFunc();
   let newState = JSON.parse(JSON.stringify(tiles));
-  
-  // 获取本次移动产生的隐藏得分
   let simScore = aiSimScore;
-  
-  // 恢复全局状态
-  tiles = backupTiles;
-  currentScore = backupScore;
-  simulateMode = backupSimulateMode;
-  aiSimScore = backupAiSimScore;
-  
+  tiles = backup;
   return { moved, newState, simScore };
 }
 
-// 评价状态函数：对当前状态进行打分，越靠近左下角得分越高，同时左下角如果存放了最大数，额外奖励
+// 评价状态：越靠近左下角得分越高；左下角放置最大数额外奖励
 function evaluateState(state) {
   let score = 0;
   for (let row = 0; row < side; row++) {
     for (let col = 0; col < side; col++) {
       let tile = state.find(t => t.row === row && t.col === col);
       if (tile) {
-        // 计算离左下角 (side-1,0) 的距离，越近得分越高
         let distanceFromBottomLeft = (side - row) * 10 + (side - col);
         score += tile.value * distanceFromBottomLeft;
       }
     }
   }
-  // 如果左下角存在最大数字，则额外奖励 5000 分
   let largestTile = Math.max(...state.map(t => t.value));
   let bottomLeftTile = state.find(t => t.row === side - 1 && t.col === 0);
   if (bottomLeftTile && bottomLeftTile.value === largestTile) {
@@ -689,18 +598,16 @@ function evaluateState(state) {
   return score;
 }
 
-// 递归搜索函数：预搜索 depth 层后返回最佳评分（包含模拟中累计的隐藏得分）
+// 递归搜索：预搜索 depth 层后返回最佳评分
 function search(depth, state) {
   if (depth === 0) {
     return evaluateState(state);
   }
   let bestScore = -Infinity;
-  // 按照优先顺序：向下和向左比较容易保持左下角稳定
   let moves = [moveDown, moveLeft, moveRight, moveUp];
   for (let moveFunc of moves) {
     let sim = simulateMoveOnState(moveFunc, state);
     if (!sim.moved) continue;
-    // 当前这一步的隐藏得分加上后续搜索得到的分数
     let score = sim.simScore + search(depth - 1, sim.newState);
     if (score > bestScore) {
       bestScore = score;
@@ -709,7 +616,7 @@ function search(depth, state) {
   return bestScore;
 }
 
-// 根据预搜索选择最佳移动方向，预搜索层数可以设置为 2 或 3
+// 选择最佳移动（模拟算法）
 function findBestMove() {
   let bestMove = null;
   let bestScore = -Infinity;
@@ -719,7 +626,7 @@ function findBestMove() {
     { move: moveRight },
     { move: moveUp },
   ];
-  const depth = 5; // 预搜索层数，可调为 3
+  const depth = 5;
   for (let candidate of moves) {
     let sim = simulateMoveOnState(candidate.move, tiles);
     if (!sim.moved) continue;
@@ -732,29 +639,59 @@ function findBestMove() {
   return bestMove;
 }
 
-// ======== 自动游玩函数 ========
-
-// 自动移动函数：没有延时，快速连续执行
+// 自动移动函数：根据棋盘大小选择算法
 function autoMove() {
   if (!autoPlay || !isGameStarted) return;
   
-  let bestMove = findBestMove();
-  if (bestMove) {
-    bestMove(); // 执行最佳移动
-    renderAllTiles();
-    finalizePositions();
-    spawnRandomTile();
-    renderAllTiles();
-    checkGameOver();
-    setTimeout(autoMove, 0);  // 无延时，最快速度继续自动移动
+  if (side < 7) {
+    // 使用 worker.js 算法
+    autoMoveWorker();
   } else {
-    autoPlay = false;
-    alert("游戏结束！");
+    // 使用预搜索模拟算法
+    let bestMove = findBestMove();
+    if (bestMove) {
+      bestMove(); // 执行最佳移动
+      renderAllTiles();
+      finalizePositions();
+      spawnRandomTile();
+      renderAllTiles();
+      checkGameOver();
+      setTimeout(autoMove, 0);
+    } else {
+      autoPlay = false;
+      alert("游戏结束！");
+    }
   }
 }
 
-// ======== 绑定自动模式按钮 ========
-// 请确保 index.html 中有一个 id 为 btnAutoPlay 的按钮
+// worker.js 算法分支：异步调用 worker
+function autoMoveWorker() {
+  let gridArray = new Uint32Array(side * side);
+  for (let r = 0; r < side; r++) {
+    for (let c = 0; c < side; c++) {
+      let tile = tiles.find(t => t.row === r && t.col === c);
+      gridArray[r * side + c] = tile ? tile.value : 0;
+    }
+  }
+  aiWorker.postMessage({ grid: gridArray, minProb: getMinProb() });
+  aiWorker.onmessage = function(event) {
+    let bestDirection = event.data;
+    if (bestDirection !== null && bestDirection !== undefined) {
+      executeMove(bestDirection);
+      renderAllTiles();
+      finalizePositions();
+      spawnRandomTile();
+      renderAllTiles();
+      checkGameOver();
+      setTimeout(autoMove, 0);
+    } else {
+      autoPlay = false;
+      alert("游戏结束！");
+    }
+  };
+}
+
+// 绑定自动模式按钮
 document.getElementById("btnAutoPlay").addEventListener("click", () => {
   autoPlay = !autoPlay;
   if (autoPlay) {
