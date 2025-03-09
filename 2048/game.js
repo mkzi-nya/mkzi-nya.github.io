@@ -15,7 +15,7 @@ const SWIPE_THRESHOLD = 10;
 // 如果数值大于等于 1 万，则除以 1000 向下取整，并在末尾加上 "k"
 function formatNumber(n) {
   if(n >= 10000) {
-    return Math.floor(n / 1000) + "k";
+    return Math.floor(n / 1024) + "k";
   } else {
     return n.toString();
   }
