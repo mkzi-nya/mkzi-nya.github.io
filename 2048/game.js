@@ -532,6 +532,7 @@ function importSave(e) {
 }
 
 let autoPlay = false;
+let searchDepth = 3; // 搜索 3 层深度，预测未来 3 步
 
 function autoMove() {
   if (!autoPlay || !isGameStarted) return;
@@ -544,7 +545,7 @@ function autoMove() {
     spawnRandomTile();
     renderAllTiles();
     checkGameOver();
-    requestAnimationFrame(autoMove); // 立即执行下一步，去掉延迟
+    requestAnimationFrame(autoMove); // 立即执行下一步，无延迟
   } else {
     autoPlay = false;
     alert("游戏结束！");
@@ -552,54 +553,79 @@ function autoMove() {
 }
 
 function findBestMove() {
+  let bestMove = null;
+  let bestScore = -Infinity;
+
   let moves = [
-    { move: moveDown, priority: evaluateMove(moveDown) },  // 优先向下
-    { move: moveLeft, priority: evaluateMove(moveLeft) },  // 然后向左
-    { move: moveRight, priority: evaluateMove(moveRight) }, // 其次向右
-    { move: moveUp, priority: evaluateMove(moveUp) },      // 最后向上
+    { move: moveDown, priority: 0 },
+    { move: moveLeft, priority: 0 },
+    { move: moveRight, priority: 0 },
+    { move: moveUp, priority: 0 },
   ];
 
-  // 按优先级排序，选择最高分的移动方向
-  moves.sort((a, b) => b.priority - a.priority);
-  
-  if (moves[0].priority > 0) return moves[0].move;
-  return null; // 如果所有方向都无效，则返回 null
-}
+  // **深度搜索 3 层，考虑未来 3 步的最优解**
+  for (let i = 0; i < moves.length; i++) {
+    let moveFunc = moves[i].move;
+    let clonedTiles = JSON.stringify(tiles); // 备份当前棋盘状态
 
-function evaluateMove(moveFunc) {
-  let originalTiles = JSON.stringify(tiles);
-  let moved = moveFunc();
-  let score = 0;
+    let moved = moveFunc();
+    if (moved) {
+      let moveScore = minimax(searchDepth, false); // 预测未来 3 步
+      if (moveScore > bestScore) {
+        bestScore = moveScore;
+        bestMove = moveFunc;
+      }
+    }
 
-  if (moved) {
-    let largestTile = Math.max(...tiles.map(t => t.value));
-    let gridScore = calculateGridScore();
-
-    // **确保左下角是最大数**
-    let bottomLeftTile = tiles.find(t => t.row === side - 1 && t.col === 0);
-    let bottomLeftScore = (bottomLeftTile && bottomLeftTile.value === largestTile) ? 5000 : -5000;
-
-    score = gridScore + largestTile + bottomLeftScore;
+    tiles = JSON.parse(clonedTiles); // 还原棋盘状态
   }
 
-  tiles = JSON.parse(originalTiles); // 还原棋盘状态
-  return score;
+  return bestMove;
 }
 
-function calculateGridScore() {
+// **Minimax 递归搜索算法**
+function minimax(depth, isMaximizing) {
+  if (depth === 0) return evaluateBoard();
+
+  let bestScore = isMaximizing ? -Infinity : Infinity;
+  let moves = [moveDown, moveLeft, moveRight, moveUp];
+
+  for (let move of moves) {
+    let clonedTiles = JSON.stringify(tiles);
+    let moved = move();
+    if (moved) {
+      let score = minimax(depth - 1, !isMaximizing);
+      bestScore = isMaximizing ? Math.max(bestScore, score) : Math.min(bestScore, score);
+    }
+    tiles = JSON.parse(clonedTiles); // 还原棋盘状态
+  }
+
+  return bestScore;
+}
+
+// **计算棋盘评分**
+function evaluateBoard() {
   let score = 0;
   
   for (let row = 0; row < side; row++) {
     for (let col = 0; col < side; col++) {
       let tile = tiles.find(t => t.row === row && t.col === col);
       if (tile) {
-        // **增强左下角权重**
         let distanceFromBottomLeft = (row * 10) + (side - col);
         score += tile.value * distanceFromBottomLeft;
       }
     }
   }
-  
+
+  // **确保左下角是最大数**
+  let largestTile = Math.max(...tiles.map(t => t.value));
+  let bottomLeftTile = tiles.find(t => t.row === side - 1 && t.col === 0);
+  if (bottomLeftTile && bottomLeftTile.value === largestTile) {
+    score += 5000; // 保证左下角最大数稳定
+  } else {
+    score -= 5000; // 惩罚左下角最大数丢失
+  }
+
   return score;
 }
 
