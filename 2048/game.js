@@ -535,18 +535,16 @@ let autoPlay = false;
 
 function autoMove() {
   if (!autoPlay || !isGameStarted) return;
-  
+
   let bestMove = findBestMove();
   if (bestMove) {
     bestMove();
     renderAllTiles();
-    setTimeout(() => {
-      finalizePositions();
-      spawnRandomTile();
-      renderAllTiles();
-      checkGameOver();
-      setTimeout(autoMove, 0);  // 继续自动执行
-    }, 0);
+    finalizePositions();
+    spawnRandomTile();
+    renderAllTiles();
+    checkGameOver();
+    requestAnimationFrame(autoMove); // 立即执行下一步，去掉延迟
   } else {
     autoPlay = false;
     alert("游戏结束！");
@@ -555,13 +553,13 @@ function autoMove() {
 
 function findBestMove() {
   let moves = [
-    { move: moveLeft, priority: evaluateMove(moveLeft) },
-    { move: moveRight, priority: evaluateMove(moveRight) },
-    { move: moveUp, priority: evaluateMove(moveUp) },
-    { move: moveDown, priority: evaluateMove(moveDown) },
+    { move: moveDown, priority: evaluateMove(moveDown) },  // 优先向下
+    { move: moveLeft, priority: evaluateMove(moveLeft) },  // 然后向左
+    { move: moveRight, priority: evaluateMove(moveRight) }, // 其次向右
+    { move: moveUp, priority: evaluateMove(moveUp) },      // 最后向上
   ];
 
-  // 按优先级排序（优先选高分方案）
+  // 按优先级排序，选择最高分的移动方向
   moves.sort((a, b) => b.priority - a.priority);
   
   if (moves[0].priority > 0) return moves[0].move;
@@ -576,7 +574,12 @@ function evaluateMove(moveFunc) {
   if (moved) {
     let largestTile = Math.max(...tiles.map(t => t.value));
     let gridScore = calculateGridScore();
-    score = gridScore + largestTile;
+
+    // **确保左下角是最大数**
+    let bottomLeftTile = tiles.find(t => t.row === side - 1 && t.col === 0);
+    let bottomLeftScore = (bottomLeftTile && bottomLeftTile.value === largestTile) ? 5000 : -5000;
+
+    score = gridScore + largestTile + bottomLeftScore;
   }
 
   tiles = JSON.parse(originalTiles); // 还原棋盘状态
@@ -590,8 +593,9 @@ function calculateGridScore() {
     for (let col = 0; col < side; col++) {
       let tile = tiles.find(t => t.row === row && t.col === col);
       if (tile) {
-        let weight = (side - row) * 10 + (side - col); // 让大数靠近左下角
-        score += tile.value * weight;
+        // **增强左下角权重**
+        let distanceFromBottomLeft = (row * 10) + (side - col);
+        score += tile.value * distanceFromBottomLeft;
       }
     }
   }
