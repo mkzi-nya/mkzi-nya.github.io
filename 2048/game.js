@@ -18,11 +18,15 @@ let aiStrength = 8;  // AI 强度（用于 worker 算法的概率阈值映射）
 
 // ===== 辅助函数：格式化数值 =====
 function formatNumber(n) {
+    if(n >= 10240000) {
+    return Math.floor(n / 1048576) + "m";
+  } else {
   if(n >= 10000) {
     return Math.floor(n / 1024) + "k";
   } else {
     return n.toString();
   }
+}
 }
 
 // ===== getMinProb：返回 worker 算法所用的最小概率阈值 =====
