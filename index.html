@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>mkzi-nya的个人主页</title>
+  <title>mkzi-nya's home</title>
   <style>
     /* 全局样式重置 */
     * {
@@ -11,8 +11,21 @@
       padding: 0;
       box-sizing: border-box;
     }
-    /* 页面主体设置暗色背景和字体颜色 */
+    /* 顶部 Home 标题 */
+    .title {
+      position: fixed;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #fff;
+      font-size: 2em;
+      font-weight: bold;
+      opacity: 0.8;
+      pointer-events: none; /* 防止鼠标事件影响 */
+    }
+    /* 禁用页面滚动 */
     body {
+      overflow: hidden;
       background-color: #121212;
       color: #e0e0e0;
       font-family: Arial, sans-serif;
@@ -20,6 +33,16 @@
       flex-direction: column;
       min-height: 100vh;
       text-align: center;
+    }
+    /* 背景 canvas 设置为全屏，轻微模糊，并置于最底层 */
+    #lifeCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      filter: blur(1px);
     }
     /* 顶部标题区域 */
     header {
@@ -38,12 +61,10 @@
       flex-direction: column;
       padding: 20px;
     }
-    /* 按钮容器样式 */
+    /* 按钮容器样式，去除底座背景和阴影 */
     .button-container {
-      background-color: #1a1a1a;
       padding: 30px;
       border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
       display: flex;
       flex-direction: column;
       gap: 20px;
@@ -51,10 +72,10 @@
       width: 100%;
       max-width: 400px;
     }
-    /* 按钮样式 */
+    /* 按钮样式，背景半透明 */
     .button-container a, .button-container button {
       text-decoration: none;
-      background-color: #333;
+      background-color: rgba(51,51,51,0.5);
       color: #e0e0e0;
       padding: 15px 30px;
       border-radius: 5px;
@@ -67,25 +88,30 @@
     }
     /* 按钮悬停效果 */
     .button-container a:hover, .button-container button:hover {
-      background-color: #444;
+      background-color: rgba(68,68,68,0.5);
     }
     /* 按钮点击时的动画 */
     .button-container button:active {
       transform: scale(1.05);
-      background-color: #555;
+      background-color: rgba(85,85,85,0.5);
     }
-    /* 页脚简单信息 */
+    /* 固定在屏幕内的版权信息 */
     footer {
+      position: fixed;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
       text-align: center;
-      padding: 10px;
-      background-color: #1f1f1f;
       font-size: 0.9em;
+      background: none;
+      padding: 0;
     }
   </style>
 </head>
 <body>
-
-  <header id="header-text">欢迎~</header>
+  <div class="title">Home</div>
+  <!-- 背景生命游戏 canvas -->
+  <canvas id="lifeCanvas"></canvas>
 
   <div class="content">
     <div class="button-container">
@@ -100,48 +126,169 @@
   </footer>
 
   <script>
-    // 语言数组（欢迎~）
-    const welcomeMessages = [
-      "欢迎~", "Welcome~", "ようこそ~",
-    ];
-    
-    // 语言数组（喵~）
-    const meowMessages = [
-      "喵~", "Meow~", "Miau~", "にゃ~", "야옹~", "Мяу~", "Miaou~", "Mjau~", "Meeeooow~", "咪~", "ฅ^•ﻌ•^ฅ"
-    ];
+    const meowMessages = ["喵~", "Meow~", "Miau~", "にゃ~", "야옹~", "Мяу~", "Miaou~", "Mjau~", "Meeeooow~", "咪~", "ฅ^•ﻌ•^ฅ"];
 
-    // 让标题循环变化
-    let index = 0;
-    function changeTitle() {
-      const header = document.getElementById("header-text");
-      header.style.opacity = 0; // 渐隐
-      setTimeout(() => {
-        index = (index + 1) % welcomeMessages.length;
-        header.innerText = welcomeMessages[index];
-        header.style.opacity = 1; // 渐显
-      }, 500);
-    }
-    setInterval(changeTitle, 3000); // 每3秒切换一次
-
-    // 按钮动画
     function animateButton(button, callback) {
-      button.style.transform = "scale(1.2)";  // 放大
-      button.style.backgroundColor = "#555"; // 颜色变化
-
+      button.style.transform = "scale(1.2)";
+      button.style.backgroundColor = "rgba(85,85,85,0.5)";
       setTimeout(() => {
-        button.style.transform = "scale(1)";  // 缩小回去
-        button.style.backgroundColor = "#333"; // 颜色恢复
-
+        button.style.transform = "scale(1)";
+        button.style.backgroundColor = "rgba(51,51,51,0.5)";
         setTimeout(() => {
           if (callback) callback();
-        }, 50); // 让动画完成后再执行回调函数
-      }, 100); // 0.1秒后执行缩小
+        }, 50);
+      }, 100);
     }
 
-    // 点击按钮弹出随机喵~
     function showMeow() {
       alert(meowMessages[Math.floor(Math.random() * meowMessages.length)]);
     }
+  </script>
+
+  <script>
+    (function(){
+      // 控制细胞新生时隐藏迭代次数
+      const HIDE_ITERATIONS = 1;
+      
+      const canvas = document.getElementById("lifeCanvas");
+      const ctx = canvas.getContext("2d");
+      
+      const cellSize =5;
+      let gridWidth, gridHeight;
+      let grid = [], nextGrid = [], inactiveTime = [];
+      // 记录每个细胞存活的迭代数，初始或新生时为 0
+      let cellAge = [];
+
+      function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        gridWidth = Math.floor(canvas.width / cellSize);
+        gridHeight = Math.floor(canvas.height / cellSize);
+        initGrid();
+      }
+      window.addEventListener("resize", resizeCanvas);
+      resizeCanvas();
+
+      function initGrid() {
+        grid = Array.from({ length: gridHeight }, () => Array(gridWidth).fill(0));
+        nextGrid = Array.from({ length: gridHeight }, () => Array(gridWidth).fill(0));
+        inactiveTime = Array.from({ length: gridHeight }, () => Array(gridWidth).fill(0));
+        cellAge = Array.from({ length: gridHeight }, () => Array(gridWidth).fill(0));
+
+        for (let i = 0; i < gridHeight; i++) {
+          for (let j = 0; j < gridWidth; j++) {
+            // 随机生成细胞，新生细胞 age 为 0（隐藏前两次）
+            grid[i][j] = Math.random() < 0.1 ? 1 : 0;
+            cellAge[i][j] = 0;
+          }
+        }
+      }
+
+      function updateSimulation() {
+        // 用于保存本次更新后细胞的年龄信息
+        let newAge = Array.from({ length: gridHeight }, () => Array(gridWidth).fill(0));
+
+        for (let i = 0; i < gridHeight; i++) {
+          for (let j = 0; j < gridWidth; j++) {
+            let neighbors = 0;
+            for (let di = -1; di <= 1; di++) {
+              for (let dj = -1; dj <= 1; dj++) {
+                if (di === 0 && dj === 0) continue;
+                let ni = (i + di + gridHeight) % gridHeight;
+                let nj = (j + dj + gridWidth) % gridWidth;
+                neighbors += grid[ni][nj];
+              }
+            }
+
+            if (grid[i][j] === 1) {
+              // 存活规则
+              if (neighbors === 2 || neighbors === 3) {
+                nextGrid[i][j] = 1;
+                newAge[i][j] = cellAge[i][j] + 1; // 存活则年龄加 1
+              } else {
+                nextGrid[i][j] = 0;
+                newAge[i][j] = 0;
+              }
+              inactiveTime[i][j] = 0;
+            } else {
+              // 诞生规则
+              if (neighbors === 3) {
+                nextGrid[i][j] = 1;
+                newAge[i][j] = 0; // 新生细胞 age 为 0（隐藏前两次）
+              } else {
+                nextGrid[i][j] = 0;
+                newAge[i][j] = 0;
+                inactiveTime[i][j]++;
+                if (inactiveTime[i][j] > 200) {
+                  nextGrid[i][j] = Math.random() < 0.05 ? 1 : 0;
+                  if (nextGrid[i][j] === 1) {
+                    newAge[i][j] = 0; // 重新生成的细胞 age 同样为 0
+                  }
+                  inactiveTime[i][j] = 0;
+                }
+              }
+            }
+          }
+        }
+        // 交换 grid 与 nextGrid
+        [grid, nextGrid] = [nextGrid, grid];
+        // 更新细胞年龄
+        cellAge = newAge;
+      }
+
+function drawSimulation() {
+    // 创建渐变背景，模拟星空的深蓝到黑色变化
+    let gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    gradient.addColorStop(0, "#000018"); // 顶部深蓝
+    gradient.addColorStop(0.5, "#000009"); // 中间黑蓝过渡
+    gradient.addColorStop(1, "#000000"); // 底部纯黑
+
+    // 填充渐变背景
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 随机生成一些星云效果
+    for (let i = 0; i < 3; i++) {
+        let x = Math.random() * canvas.width;
+        let y = Math.random() * canvas.height;
+        let size = Math.random() * 100 + 50;
+        let blur = ctx.createRadialGradient(x, y, 0, x, y, size);
+        
+        blur.addColorStop(0, "rgba(20, 20, 40, 0.3)");  // 深蓝紫
+        blur.addColorStop(1, "rgba(0, 0, 0, 0)"); // 渐变到透明
+
+        ctx.fillStyle = blur;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+
+    // 定义星星的颜色，使它们有不同的色调
+    const colors = ["255,255,255", "255,223,186", "170,204,255", "204,221,255"];
+
+    // 绘制星星
+    for (let i = 0; i < gridHeight; i++) {
+        for (let j = 0; j < gridWidth; j++) {
+            if (grid[i][j] && cellAge[i][j] >= HIDE_ITERATIONS) { // **仅绘制存活超过 HIDE_ITERATIONS 的细胞**
+                let alpha = Math.random() * 0.5 + 0.5; // 透明度随机变化
+                let color = colors[(i + j) % colors.length];
+                ctx.fillStyle = `rgba(${color},${alpha})`;
+                ctx.beginPath();
+                ctx.arc(j * cellSize + cellSize / 2, i * cellSize + cellSize / 2, cellSize / 3, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+        }
+    }
+}
+
+
+      function simulationLoop() {
+        updateSimulation();
+        drawSimulation();
+        requestAnimationFrame(simulationLoop);
+      }
+      simulationLoop();
+    })();
   </script>
 
 </body>
