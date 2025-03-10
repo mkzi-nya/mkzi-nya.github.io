@@ -234,53 +234,63 @@
   color: #f9f6f2;
 }
 .tile-n21 {
-  background: #32322e;
+  background: #2b2d6d;  /* 深灰蓝 */
   color: #f9f6f2;
 }
 .tile-n22 {
-  background: #001f3f;
+  background: #1f2a64;  /* 深靛蓝 */
   color: #f9f6f2;
 }
 .tile-n23 {
-  background: #003366;
+  background: #183b8f;  /* 深海蓝 */
   color: #f9f6f2;
 }
 .tile-n24 {
-  background: #004080;
+  background: #104a84;  /* 海军蓝 */
   color: #f9f6f2;
 }
 .tile-n25 {
-  background: #00509e;
+  background: #0c5aa7;  /* 深天蓝 */
   color: #f9f6f2;
 }
 .tile-n26 {
-  background: #0066cc;
+  background: #0073cc;  /* 亮蓝 */
   color: #f9f6f2;
 }
 .tile-n27 {
-  background: #0073e6;
+  background: #0088e6;  /* 亮天蓝 */
   color: #f9f6f2;
 }
 .tile-n28 {
-  background: #0080ff;
+  background: #009eff;  /* 纯天蓝 */
   color: #f9f6f2;
 }
 .tile-n29 {
-  background: #3399ff;
+  background: #2aaaff;  /* 过渡到亮蓝 */
   color: #f9f6f2;
 }
 .tile-n30 {
-  background: #66b2ff;
+  background: #55baff;  /* 更亮的蓝 */
   color: #f9f6f2;
 }
 .tile-n31 {
-  background: #99ccff;
+  background: #78caff;  /* 亮湖蓝 */
   color: #f9f6f2;
 }
 .tile-n32 {
-  background: #cce5ff;
-  color: #f9f6f2;
+  background: #99daff;  /* 淡蓝色 */
+  color: #000000;
 }
+.tile-n33 {
+  background: #bbeaff;  /* 极淡蓝 */
+  color: #000000;
+}
+.tile-n34 {
+  background: #ddf3ff;  /* 接近白色的冷蓝 */
+  color: #000000;
+}
+
+
 
 
 
