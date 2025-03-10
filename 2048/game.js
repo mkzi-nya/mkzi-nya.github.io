@@ -614,19 +614,36 @@ function importSave(e) {
 }
 
 // ======== 以下为 AI 自动游玩及模拟预搜索算法 ============
-let aiSimScore = 0;
 let autoPlay = false;
 let simulateMode = false;
 
-// 在不改变全局状态下模拟一次移动
+/**
+ * 在不改变全局状态下模拟一次移动
+ * 修改点：在模拟过程中临时覆盖 updateScore，
+ * 捕获移动过程中加分（merge 时调用 updateScore 产生的分数），
+ * 模拟结束后恢复全局 tiles 与 currentScore，不影响界面显示的分数。
+ */
 function simulateMoveOnState(moveFunc, state) {
-  let backup = tiles;
+  // 备份全局状态
+  let backupTiles = tiles;
+  let backupScore = currentScore;
+  let simulatedScore = 0;
+  // 临时重写 updateScore，不更新界面，而是累计分数
+  const originalUpdateScore = updateScore;
+  updateScore = function(add) {
+    simulatedScore += add;
+  };
+
   tiles = JSON.parse(JSON.stringify(state));
   let moved = moveFunc();
   let newState = JSON.parse(JSON.stringify(tiles));
-  let simScore = aiSimScore;
-  tiles = backup;
-  return { moved, newState, simScore };
+
+  // 恢复 updateScore 与全局 currentScore、tiles
+  updateScore = originalUpdateScore;
+  currentScore = backupScore;
+  tiles = backupTiles;
+
+  return { moved, newState, simScore: simulatedScore };
 }
 
 // 评价状态：越靠近左下角得分越高；左下角放置最大数额外奖励
@@ -710,7 +727,6 @@ function autoMove() {
       setTimeout(autoMove, 0);
     } else {
       autoPlay = false;
-      alert("游戏结束！");
     }
   }
 }
@@ -737,7 +753,6 @@ function autoMoveWorker() {
       setTimeout(autoMove, 0);
     } else {
       autoPlay = false;
-      alert("游戏结束！");
     }
   };
 }
