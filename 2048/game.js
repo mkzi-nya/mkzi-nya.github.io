@@ -18,16 +18,19 @@ let aiStrength = 8;  // AI 强度（用于 worker 算法的概率阈值映射）
 
 // ===== 辅助函数：格式化数值 =====
 function formatNumber(n) {
-    if(n >= 10240000) {
-    return Math.floor(n / 1048576) + "m";
-  } else {
-  if(n >= 10000) {
-    return Math.floor(n / 1024) + "k";
-  } else {
-    return n.toString();
+  const units = ["", "k", "m", "g", "t", "p", "e", "z", "y", "r", "q"];
+  let unitIndex = 0;
+
+  while (n >= 10240 && unitIndex < units.length - 1) {
+    n = Math.floor(n / 1024);
+    unitIndex++;
   }
+
+  return n + units[unitIndex];
 }
-}
+
+
+
 
 // ===== getMinProb：返回 worker 算法所用的最小概率阈值 =====
 function getMinProb() {

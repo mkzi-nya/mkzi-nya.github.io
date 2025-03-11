@@ -152,6 +152,54 @@
   }
 }
 
+
+
+/* 暗色模式 */
+body.dark-mode {
+  background-color: #333333;
+  color: #e0e0e0;
+}
+
+body.dark-mode .score-box {
+  background: #444;
+  color: #ffffff;
+}
+
+body.dark-mode .buttons-panel button,
+body.dark-mode .panel-section button {
+  background: #555;
+  color: #f0f0f0;
+}
+
+body.dark-mode .buttons-panel button:hover,
+body.dark-mode .panel-section button:hover {
+  background-color: #666;
+}
+
+body.dark-mode .tile-merged {
+  animation: dark-pop 0.2s;
+}
+@keyframes dark-pop {
+  0%   { transform: scale(1); opacity: 0.8; }
+  50%  { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.9; }
+}
+
+body.dark-mode .tile-pop {
+  animation: dark-tilePop 0.1s forwards;
+}
+@keyframes dark-tilePop {
+  0% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+
 /* 根据 tile 的等级设置配色，沿用原有颜色方案 */
 .tile-n1 {
   background: #eee4da;
@@ -289,52 +337,69 @@
   background: #ddf3ff;  /* 接近白色的冷蓝 */
   color: #000000;
 }
-
-
-
-
-
-/* 暗色模式 */
-body.dark-mode {
-  background-color: #333333;
-  color: #e0e0e0;
-}
-
-body.dark-mode .score-box {
-  background: #444;
-  color: #ffffff;
-}
-
-body.dark-mode .buttons-panel button,
-body.dark-mode .panel-section button {
-  background: #555;
-  color: #f0f0f0;
-}
-
-body.dark-mode .buttons-panel button:hover,
-body.dark-mode .panel-section button:hover {
-  background-color: #666;
-}
-
-body.dark-mode .tile-merged {
-  animation: dark-pop 0.2s;
-}
-@keyframes dark-pop {
-  0%   { transform: scale(1); opacity: 0.8; }
-  50%  { transform: scale(1.1); opacity: 1; }
-  100% { transform: scale(1); opacity: 0.9; }
-}
-
-body.dark-mode .tile-pop {
-  animation: dark-tilePop 0.1s forwards;
-}
-@keyframes dark-tilePop {
-  0% {
-    transform: scale(0);
-    opacity: 0.5;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
+.tile-n35 { background: #f0f8ff; color: #000000; }
+.tile-n36 { background: #e6f4ff; color: #000000; }
+.tile-n37 { background: #ccedff; color: #000000; }
+.tile-n38 { background: #b3e5ff; color: #000000; }
+.tile-n39 { background: #99ddff; color: #000000; }
+.tile-n40 { background: #80d4ff; color: #000000; }
+.tile-n41 { background: #66ccff; color: #000000; }
+.tile-n42 { background: #4dc3ff; color: #000000; }
+.tile-n43 { background: #33bbff; color: #000000; }
+.tile-n44 { background: #1ab2ff; color: #000000; }
+.tile-n45 { background: #00aaff; color: #f9f6f2; }
+.tile-n46 { background: #0099e6; color: #f9f6f2; }
+.tile-n47 { background: #0088cc; color: #f9f6f2; }
+.tile-n48 { background: #0077b3; color: #f9f6f2; }
+.tile-n49 { background: #006699; color: #f9f6f2; }
+.tile-n50 { background: #005580; color: #f9f6f2; }
+.tile-n51 { background: #004466; color: #f9f6f2; }
+.tile-n52 { background: #00334d; color: #f9f6f2; }
+.tile-n53 { background: #002233; color: #f9f6f2; }
+.tile-n54 { background: #00111a; color: #f9f6f2; }
+.tile-n55 { background: #1a1a1a; color: #f9f6f2; }
+.tile-n56 { background: #333333; color: #f9f6f2; }
+.tile-n57 { background: #4d4d4d; color: #f9f6f2; }
+.tile-n58 { background: #666666; color: #f9f6f2; }
+.tile-n59 { background: #808080; color: #f9f6f2; }
+.tile-n60 { background: #999999; color: #000000; }
+.tile-n61 { background: #b3b3b3; color: #000000; }
+.tile-n62 { background: #cccccc; color: #000000; }
+.tile-n63 { background: #e6e6e6; color: #000000; }
+.tile-n64 { background: #ffffff; color: #000000; }
+.tile-n65 { background: #fff0e6; color: #000000; }
+.tile-n66 { background: #ffe0cc; color: #000000; }
+.tile-n67 { background: #ffc299; color: #000000; }
+.tile-n68 { background: #ffa366; color: #000000; }
+.tile-n69 { background: #ff8533; color: #f9f6f2; }
+.tile-n70 { background: #ff6600; color: #f9f6f2; }
+.tile-n71 { background: #e65c00; color: #f9f6f2; }
+.tile-n72 { background: #cc5200; color: #f9f6f2; }
+.tile-n73 { background: #b34700; color: #f9f6f2; }
+.tile-n74 { background: #993d00; color: #f9f6f2; }
+.tile-n75 { background: #803300; color: #f9f6f2; }
+.tile-n76 { background: #662900; color: #f9f6f2; }
+.tile-n77 { background: #4d1f00; color: #f9f6f2; }
+.tile-n78 { background: #331400; color: #f9f6f2; }
+.tile-n79 { background: #ffccff; color: #000000; }
+.tile-n80 { background: #ff99ff; color: #000000; }
+.tile-n81 { background: #ff66ff; color: #000000; }
+.tile-n82 { background: #ff33ff; color: #f9f6f2; }
+.tile-n83 { background: #ff00ff; color: #f9f6f2; }
+.tile-n84 { background: #cc00cc; color: #f9f6f2; }
+.tile-n85 { background: #990099; color: #f9f6f2; }
+.tile-n86 { background: #660066; color: #f9f6f2; }
+.tile-n87 { background: #330033; color: #f9f6f2; }
+.tile-n88 { background: #000000; color: #f9f6f2; }
+.tile-n89 { background: #000033; color: #f9f6f2; }
+.tile-n90 { background: #000066; color: #f9f6f2; }
+.tile-n91 { background: #000099; color: #f9f6f2; }
+.tile-n92 { background: #0000cc; color: #f9f6f2; }
+.tile-n93 { background: #0000ff; color: #f9f6f2; }
+.tile-n94 { background: #0033ff; color: #f9f6f2; }
+.tile-n95 { background: #0066ff; color: #f9f6f2; }
+.tile-n96 { background: #0099ff; color: #f9f6f2; }
+.tile-n97 { background: #00ccff; color: #f9f6f2; }
+.tile-n98 { background: #00ffff; color: #000000; }
+.tile-n99 { background: #33ffff; color: #000000; }
+.tile-n100 { background: #66ffff; color: #000000; }
