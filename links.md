@@ -4,4 +4,4 @@
 - [2048AI](https://ziap.github.io/2048-ai/)
 - [Mercury](https://chat.inceptionlabs.ai/)
 - [mc种子解析](https://www.chunkbase.com/apps/)
-- [华为查找设备](https://cloud.huawei.com/wapFindPhone.html#/home)
+- [卡哇伊滴](http://www.staggeringbeauty.com/)
