@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Links</title>
+  
+  <!-- 样式库 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css/github-markdown-dark.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+
+  <!-- JavaScript 库 -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked-katex-extension/lib/index.umd.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+
+  <style>
+    body {
+      margin: 0; padding: 20px; box-sizing: border-box; background: #0d1117;
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .container { width: 100%; max-width: 900px; }
+    .markdown-body { width: 100%; overflow-wrap: break-word; }
+    pre, code { user-select: text; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <article id="content" class="markdown-body"></article>
+  </div>
+
+  <script>
+    // 启用 marked 扩展
+    marked.use(markedKatex());
+
+    marked.setOptions({
+      highlight: (code, lang) => {
+        if (lang && hljs.getLanguage(lang)) return hljs.highlight(code, { language: lang }).value;
+        return hljs.highlightAuto(code).value;
+      }
+    });
+
+    // 加载 links.md 并解析为 HTML
+    function loadMarkdown() {
+      fetch('./links.md')
+        .then(res => res.text())
+        .then(md => {
+          content.innerHTML = marked.parse(md, { headerIds: true, mangle: false });
+
+          // 让所有的链接在新标签页打开
+          document.querySelectorAll("#content a").forEach(link => {
+            link.setAttribute("target", "_blank");
+            link.setAttribute("rel", "noopener noreferrer"); // 安全防范，避免新页面访问 window.opener
+          });
+
+          hljs.highlightAll(); // 代码高亮
+        })
+        .catch(() => {
+          content.innerHTML = `<p style="color: red;">未找到 <b>links.md</b> 文件</p>`;
+        });
+    }
+
+    // 初始化
+    window.addEventListener('load', loadMarkdown);
+  </script>
+
+</body>
+</html>
