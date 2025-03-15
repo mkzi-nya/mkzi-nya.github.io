@@ -5,4 +5,4 @@
 - [Mercury](https://chat.inceptionlabs.ai/)
 - [mc种子解析](https://www.chunkbase.com/apps/)
 - [卡哇伊滴](http://www.staggeringbeauty.com/)
-- [打砖块](https://mkzi-nya.github.io/Brick_Breaker/index.html)
+- [打砖块](https://mkzi-nya.github.io/Brick-Breaker/index.html)
