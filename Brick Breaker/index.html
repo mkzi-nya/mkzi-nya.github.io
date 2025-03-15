@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>打砖块</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #111;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      height: 100%;
+    }
+    #gameCanvas {
+      display: block;
+      width: 90vw;
+      height: 100vh;
+      margin: 0 auto;
+      background: #000;
+    }
+    .infoBar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      color: #fff;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 5px 0;
+      z-index: 10;
+    }
+    .bottomBar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      z-index: 10;
+      padding: 5px 0;
+    }
+    .bottomBar button {
+      padding: 5px 10px;
+      background: #333;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      margin: 0 5px;
+    }
+    #restartBtn {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="infoBar">
+    <span>得分：<span id="score">0</span></span>
+    <span>回合：<span id="roundNum">1</span></span>
+  </div>
+
+  <canvas id="gameCanvas"></canvas>
+
+  <div class="bottomBar">
+    <span>小球数：<span id="ballCount">2</span></span>
+    <button id="fastDropBtn">快速落地</button>
+    <button id="restartBtn">重開</button>
+  </div>
+
+  <script>
+  /*******************************************************
+   * 全局与画布设置
+   *******************************************************/
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+
+  // 棋盘：12行 × 9列
+  const COLS = 9, ROWS = 12;
+  const TOP_MARGIN = 50, BOTTOM_MARGIN = 150;
+  let boardX = 0, boardY = 0, boardWidth = 0, boardHeight = 0, cellSize = 0;
+  let W, H;
+  function resizeCanvas(){
+    W = Math.floor(window.innerWidth * 0.9);
+    H = window.innerHeight;
+    canvas.width = W;
+    canvas.height = H;
+    boardWidth = W;
+    boardY = TOP_MARGIN;
+    boardHeight = H - TOP_MARGIN - BOTTOM_MARGIN;
+    cellSize = Math.min(boardWidth / COLS, boardHeight / ROWS);
+    boardX = (W - cellSize * COLS) / 2;
+  }
+  window.addEventListener("resize", resizeCanvas);
+  resizeCanvas();
+
+  // 给方块留的视觉缝隙（仅用于绘制，不改变碰撞箱）
+  const BLOCK_GAP = 2;
+
+  /*******************************************************
+   * 游戏状态变量
+   *******************************************************/
+  let score = 0, round = 1, ballCount = 2;
+  let blocks = [];  // 每个 block：{ row, col, type, health, [orientation] }
+  let balls = [];   // 每个 ball：{ x, y, vx, vy, landed, radius }
+  let isShooting = false;
+  let isAiming = false;   // 是否正在拖动瞄准
+  let canAim = false;     // 若为 true 则角度向上，可发射
+  let aimAngle = 0;
+  // 发射点：放在棋盘底边上方一个球半径（发射点在回合结束后更新）
+  let launchX = 0, launchY = 0;
+  let firstBallLanded = false, finalLandingX = null;
+  let gameOver = false;
+
+  // 下落动画
+  let isDropping = false;
+  let dropStartTime = 0, dropOffset = 0;
+  const dropDuration = 200;
+  let pendingNewRow = [];
+
+  // 小球参数
+  const BALL_SPEED = 12, BALL_RADIUS = 6;
+  let shootTimeouts = [];
+
+  // 初始化发射点（初始时固定）
+  function updateLaunchPoint(){
+    launchX = boardX + (COLS * cellSize) / 2;
+    launchY = boardY + (ROWS * cellSize) - BALL_RADIUS;
+  }
+  updateLaunchPoint();
+
+  /*******************************************************
+   * 工具函数
+   *******************************************************/
+  function randInt(min, max){
+    return Math.floor(Math.random() * (max - min)) + min;
+  }
+  function shuffleArray(arr){
+    for(let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+  }
+  // 将棋盘坐标转换为像素位置（左上角）
+  function getCellPos(row, col, extraOffset = 0){
+    let y = boardY + row * cellSize + extraOffset;
+    let x = boardX + col * cellSize;
+    return { x, y };
+  }
+  // 根据血量返回颜色
+  function getBlockColor(hp){
+    if(hp <= 9) return "#0f0";         // 1-9   绿色
+    else if(hp <= 29) return "#00f";     // 10-29 蓝色
+    else if(hp <= 49) return "#f0f";     // 30-49 品红
+    else if(hp <= 69) return "#ff8c00";   // 50-69 橙色
+    else if(hp <= 99) return "#f00";      // 70-99 红色
+    else return "#800000";               // 100以上 暗红
+  }
+  // 计算三角形质心（在缩小后区域中）
+  function getTriangleCentroid(x, y, w, h, orientation){
+    let x1 = x + BLOCK_GAP, x2 = x + w - BLOCK_GAP;
+    let y1 = y + BLOCK_GAP, y2 = y + h - BLOCK_GAP;
+    switch(orientation){
+      case 0: return { x: x1 + (x2 - x1) / 3,   y: y1 + (y2 - y1) / 3 };
+      case 1: return { x: x2 - (x2 - x1) / 3,   y: y1 + (y2 - y1) / 3 };
+      case 2: return { x: x2 - (x2 - x1) / 3,   y: y2 - (y2 - y1) / 3 };
+      case 3: return { x: x1 + (x2 - x1) / 3,   y: y2 - (y2 - y1) / 3 };
+      default: return { x: x + w / 2, y: y + h / 2 };
+    }
+  }
+
+  /*******************************************************
+   * 生成初始方块（每行最多1个 extraBall）
+   *******************************************************/
+  function generateInitialBlocks(){
+    blocks = [];
+    let initialRows = randInt(3, 7);
+    for(let r = 0; r < initialRows; r++){
+      let extraBallCreated = false;
+      for(let c = 0; c < COLS; c++){
+        if(Math.random() < 0.6){
+          let roll = Math.random();
+          let minH = Math.max(1, Math.floor(round * 0.3));
+          let maxH = Math.floor(round * 1.1 + 3);
+          let type = "square";
+          let hp = randInt(minH, maxH + 1);
+          if(roll < 0.03){
+            type = "unbreakable";
+            hp = Infinity;
+          } else if(roll < 0.33){
+            if(!extraBallCreated){
+              type = "extraBall";
+              hp = 1;
+              extraBallCreated = true;
+            }
+          } else if(roll < 0.66){
+            type = "triangle";
+            hp = randInt(minH, maxH + 1);
+          }
+          let block = { row: r, col: c, type, health: hp };
+          if(type === "triangle"){
+            block.orientation = Math.floor(Math.random() * 4);
+          }
+          blocks.push(block);
+        }
+      }
+    }
+  }
+  generateInitialBlocks();
+
+  /*******************************************************
+   * 生成新一行
+   *******************************************************/
+  function generateNewRow(){
+    let newRow = [];
+    let lower = Math.floor(round * 0.3);
+    if(lower < 1) lower = 1;
+    let upper = Math.floor(round * 1.1 + 3);
+    let totalBlocks = randInt(lower, upper + 1);
+    if(totalBlocks > 5) totalBlocks = 5;
+    let cols = [];
+    for(let c = 0; c < COLS; c++){
+      cols.push(c);
+    }
+    shuffleArray(cols);
+    cols = cols.slice(0, totalBlocks);
+    let extraBallCreated = false;
+    for(let c of cols){
+      let roll = Math.random();
+      let minH = Math.max(1, Math.floor(round * 0.3));
+      let maxH = Math.floor(round * 1.1 + 3);
+      let type = "square";
+      let hp = randInt(minH, maxH + 1);
+      if(roll < 0.03){
+        let unbreakCount = blocks.filter(b => b.type === "unbreakable").length +
+                           newRow.filter(b => b.type === "unbreakable").length;
+        if(unbreakCount < 2){
+          type = "unbreakable";
+          hp = Infinity;
+        }
+      } else if(roll < 0.33){
+        if(!extraBallCreated){
+          type = "extraBall";
+          hp = 1;
+          extraBallCreated = true;
+        }
+      } else if(roll < 0.66){
+        type = "triangle";
+        hp = randInt(minH, maxH + 1);
+      }
+      let block = { row: -1, col: c, type, health: hp };
+      if(type === "triangle"){
+        block.orientation = Math.floor(Math.random() * 4);
+      }
+      newRow.push(block);
+    }
+    return newRow;
+  }
+
+  /*******************************************************
+   * 下落动画
+   *******************************************************/
+  function startDropAnimation(){
+    isDropping = true;
+    dropStartTime = performance.now();
+    dropOffset = 0;
+    pendingNewRow = generateNewRow();
+  }
+  function updateDropAnimation(){
+    if(!isDropping) return;
+    let now = performance.now();
+    let elapsed = now - dropStartTime;
+    let progress = Math.min(elapsed / dropDuration, 1);
+    dropOffset = progress;
+    if(progress >= 1){
+      for(let b of blocks){
+        b.row++;
+      }
+      for(let b of pendingNewRow){
+        b.row++;
+        blocks.push(b);
+      }
+      isDropping = false;
+      dropOffset = 0;
+      pendingNewRow = [];
+      round++;
+      updateRoundUI();
+      // 检查是否有方块达到第12行（row==11），非无限方块则 Game Over
+      for(let i = blocks.length - 1; i >= 0; i--){
+        if(blocks[i].row >= ROWS - 1){
+          if(blocks[i].type === "unbreakable"){
+            blocks.splice(i, 1);
+          } else {
+            gameOver = true;
+            showRestartBtn();
+          }
+        }
+      }
+    }
+  }
+
+  /*******************************************************
+   * 小球发射与运动
+   *******************************************************/
+  function shootBalls(angle){
+    if(ballCount <= 0 || isShooting) return;
+    isShooting = true;
+    firstBallLanded = false;
+    finalLandingX = null;
+    shootTimeouts = [];
+    let delay = 0;
+    for(let i = 0; i < ballCount; i++){
+      let tid = setTimeout(() => {
+        balls.push({
+          x: launchX,
+          y: launchY,
+          vx: Math.cos(angle),
+          vy: Math.sin(angle),
+          landed: false,
+          radius: BALL_RADIUS
+        });
+      }, delay);
+      shootTimeouts.push(tid);
+      delay += 100;
+    }
+  }
+  function updateBalls(){
+    for(let b of balls){
+      if(b.landed) continue;
+      b.x += b.vx * BALL_SPEED;
+      b.y += b.vy * BALL_SPEED;
+      // 左右墙壁反弹
+      if(b.x < boardX + b.radius && b.vx < 0){
+        b.x = boardX + b.radius;
+        b.vx *= -1;
+      }
+      if(b.x > boardX + boardWidth - b.radius && b.vx > 0){
+        b.x = boardX + boardWidth - b.radius;
+        b.vx *= -1;
+      }
+      // 顶部反弹
+      if(b.y < boardY + b.radius && b.vy < 0){
+        b.y = boardY + b.radius;
+        b.vy *= -1;
+      }
+      // 落地：这里小球落地时只记录第一个落地的 x 坐标，不调整其它球的位置
+      if(b.y > boardY + cellSize * ROWS - b.radius){
+        b.y = boardY + cellSize * ROWS - b.radius;
+        b.landed = true;
+        if(!firstBallLanded){
+          firstBallLanded = true;
+          finalLandingX = b.x;
+        }
+      }
+      // 检测与方块碰撞
+      for(let i = blocks.length - 1; i >= 0; i--){
+        let block = blocks[i];
+        let pos = getCellPos(block.row, block.col);
+        if(isDropping){
+          pos.y = boardY + ((block.row - 1) + dropOffset) * cellSize;
+        }
+        if(block.type === "triangle"){
+          if(triangleCollision(b, pos.x, pos.y, cellSize)){
+            handleTriangleCollision(b, block);
+          }
+        } else {
+          if(circleRectCollision(b, pos.x, pos.y, cellSize, cellSize)){
+            if(block.type === "extraBall"){
+              ballCount++;
+              updateBallCountUI();
+              blocks.splice(i, 1);
+              continue;
+            }
+            let cx = pos.x + cellSize / 2, cy = pos.y + cellSize / 2;
+            let dx = b.x - cx, dy = b.y - cy;
+            if(Math.abs(dx) > Math.abs(dy)){
+              b.vx *= -1;
+            } else {
+              b.vy *= -1;
+            }
+            if(block.type !== "unbreakable"){
+              block.health--;
+              if(block.health <= 0){
+                score += 10;
+                blocks.splice(i, 1);
+              }
+            }
+          }
+        }
+      }
+    }
+    // 当所有小球落地后更新发射点并触发下落动画
+    if(isShooting && balls.length && balls.every(x => x.landed)){
+      // 更新发射点：本回合结束后，将发射点更新为第一个落地球的 x 坐标
+      if(finalLandingX !== null) {
+        launchX = finalLandingX;
+      }
+      launchY = boardY + cellSize * ROWS - BALL_RADIUS;
+      balls = [];
+      isShooting = false;
+      startDropAnimation();
+    }
+  }
+  // 圆与矩形碰撞
+  function circleRectCollision(c, rx, ry, rw, rh){
+    let distX = Math.abs(c.x - (rx + rw / 2));
+    let distY = Math.abs(c.y - (ry + rh / 2));
+    if(distX > (rw / 2 + c.radius)) return false;
+    if(distY > (rh / 2 + c.radius)) return false;
+    return true;
+  }
+  // 三角形碰撞：判断球心是否在格子内
+  function triangleCollision(ball, x, y, size){
+    let u = ball.x - x, v = ball.y - y;
+    if(u < 0 || u > size || v < 0 || v > size) return false;
+    return true;
+  }
+  function handleTriangleCollision(ball, block){
+    let pos = getCellPos(block.row, block.col);
+    let t;
+    if(block.orientation === 0 || block.orientation === 2){
+      t = { x: -1/Math.SQRT2, y: 1/Math.SQRT2 };
+    } else {
+      t = { x: 1/Math.SQRT2, y: 1/Math.SQRT2 };
+    }
+    let dot = ball.vx * t.x + ball.vy * t.y;
+    let vx_ref = 2 * dot * t.x - ball.vx;
+    let vy_ref = 2 * dot * t.y - ball.vy;
+    let angleRot = block.orientation * Math.PI / 2;
+    let cosA = Math.cos(angleRot), sinA = Math.sin(angleRot);
+    ball.vx = vx_ref * cosA - vy_ref * sinA;
+    ball.vy = vx_ref * sinA + vy_ref * cosA;
+    if(block.type !== "unbreakable"){
+      block.health--;
+      if(block.health <= 0){
+        score += 10;
+        let idx = blocks.indexOf(block);
+        if(idx >= 0) blocks.splice(idx, 1);
+      }
+    }
+  }
+
+  /*******************************************************
+   * 瞄准虚线
+   *******************************************************/
+  function drawAimingLine(){
+    let start = { x: launchX, y: launchY };
+    let v = { x: Math.cos(aimAngle), y: Math.sin(aimAngle) };
+    let tLeft = Infinity, tRight = Infinity, tTop = Infinity;
+    if(v.x < 0){
+      tLeft = (boardX + BALL_RADIUS - start.x) / v.x;
+    } else if(v.x > 0){
+      tRight = (boardX + boardWidth - BALL_RADIUS - start.x) / v.x;
+    }
+    tTop = (boardY + BALL_RADIUS - start.y) / v.y;
+    let tFirst = Math.min(tLeft, tRight, tTop);
+    let collX = start.x + v.x * tFirst;
+    let collY = start.y + v.y * tFirst;
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(collX, collY);
+    if(tFirst === tLeft || tFirst === tRight){
+      let v2 = { x: -v.x, y: v.y };
+      let t2 = (boardY + BALL_RADIUS - collY) / v2.y;
+      let scx = collX + v2.x * t2;
+      let scy = collY + v2.y * t2;
+      ctx.lineTo(scx, scy);
+    }
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = "rgba(255,255,255,0.5)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.closePath();
+  }
+
+  /*******************************************************
+   * 绘制
+   *******************************************************/
+  function draw(){
+    ctx.clearRect(0, 0, W, H);
+    // 绘制棋盘边框
+    ctx.save();
+    ctx.strokeStyle = "#0ff";
+    ctx.lineWidth = 4;
+    ctx.shadowColor = "#0ff";
+    ctx.shadowBlur = 10;
+    ctx.strokeRect(boardX, boardY, cellSize * COLS, cellSize * ROWS);
+    ctx.restore();
+    // 绘制方块
+    blocks.forEach(block => {
+      let pos = getCellPos(block.row, block.col);
+      if(isDropping && block.row >= 0){
+        pos.y = boardY + ((block.row - 1) + dropOffset) * cellSize;
+      }
+      drawBlock(pos.x, pos.y, cellSize, cellSize, block);
+    });
+    if(isDropping){
+      pendingNewRow.forEach(block => {
+        let x = boardX + block.col * cellSize;
+        let y = boardY - cellSize + dropOffset * cellSize;
+        drawBlock(x, y, cellSize, cellSize, block);
+      });
+    }
+    // 绘制小球
+    balls.forEach(b => {
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+      ctx.fillStyle = "#fff";
+      ctx.fill();
+      ctx.closePath();
+    });
+    // 发射点显示（仅在未射出小球时显示）
+    if(!isShooting && balls.length === 0){
+      ctx.beginPath();
+      ctx.arc(launchX, launchY, BALL_RADIUS, 0, Math.PI * 2);
+      ctx.fillStyle = "#fff";
+      ctx.fill();
+      ctx.closePath();
+      ctx.fillStyle = "#fff";
+      ctx.font = "14px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(ballCount, launchX, launchY - 10);
+    }
+    // 绘制瞄准虚线（只有当角度允许时）
+    if(isAiming && canAim){
+      drawAimingLine();
+    }
+  }
+  // 绘制方块（留有 BLOCK_GAP 缝隙，碰撞箱不变）
+  function drawBlock(x, y, w, h, block){
+    if(block.type === "unbreakable"){
+      ctx.fillStyle = "#aaa";
+      ctx.fillRect(x + BLOCK_GAP, y + BLOCK_GAP, w - 2 * BLOCK_GAP, h - 2 * BLOCK_GAP);
+    } else if(block.type === "extraBall"){
+      ctx.beginPath();
+      ctx.arc(x + w/2, y + h/2, BALL_RADIUS, 0, Math.PI * 2);
+      ctx.fillStyle = "purple";
+      ctx.fill();
+      ctx.closePath();
+    } else if(block.type === "triangle"){
+      let color = getBlockColor(block.health);
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 5;
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      let x1 = x + BLOCK_GAP, x2 = x + w - BLOCK_GAP;
+      let y1 = y + BLOCK_GAP, y2 = y + h - BLOCK_GAP;
+      switch(block.orientation){
+        case 0:
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y1);
+          ctx.lineTo(x1, y2);
+          break;
+        case 1:
+          ctx.moveTo(x2, y1);
+          ctx.lineTo(x2, y2);
+          ctx.lineTo(x1, y1);
+          break;
+        case 2:
+          ctx.moveTo(x2, y2);
+          ctx.lineTo(x1, y2);
+          ctx.lineTo(x2, y1);
+          break;
+        case 3:
+          ctx.moveTo(x1, y2);
+          ctx.lineTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          break;
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+      let cen = getTriangleCentroid(x, y, w, h, block.orientation);
+      ctx.fillStyle = "#fff";
+      ctx.font = "16px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(block.health, cen.x, cen.y + 6);
+    } else {
+      let color = getBlockColor(block.health);
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 5;
+      ctx.globalAlpha = 0.9;
+      ctx.strokeRect(x + BLOCK_GAP, y + BLOCK_GAP, w - 2 * BLOCK_GAP, h - 2 * BLOCK_GAP);
+      ctx.restore();
+      ctx.fillStyle = "#fff";
+      ctx.font = "16px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(block.health, x + w/2, y + h/2 + 6);
+    }
+  }
+
+  /*******************************************************
+   * 触摸/鼠标事件
+   * - 按下：在棋盘内时开启瞄准
+   * - 移动：计算相对于发射点的 dx, dy，只有 dy<0（向上）时可发射，
+   *          同时如果角度与水平夹角小于1°（即 |angle| < 0.01745 rad）则禁止发射。
+   * - 松开：若可以发射，则 shootBalls()
+   *******************************************************/
+  function getPointerPos(e){
+    let rect = canvas.getBoundingClientRect();
+    if(e.touches){
+      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+    } else {
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+  }
+  function pointerInBoard(pos){
+    return (pos.x >= boardX && pos.x <= boardX + boardWidth &&
+            pos.y >= boardY && pos.y <= boardY + boardHeight);
+  }
+  function preventDefault(e){ e.preventDefault(); }
+
+  canvas.addEventListener("mousedown", onPointerDown);
+  canvas.addEventListener("mousemove", onPointerMove);
+  canvas.addEventListener("mouseup", onPointerUp);
+  canvas.addEventListener("touchstart", onPointerDown, {passive:false});
+  canvas.addEventListener("touchmove", onPointerMove, {passive:false});
+  canvas.addEventListener("touchend", onPointerUp, {passive:false});
+
+  function onPointerDown(e){
+    preventDefault(e);
+    if(isShooting || isDropping || gameOver) return;
+    let pos = getPointerPos(e);
+    if(pointerInBoard(pos)){
+      isAiming = true;
+      canAim = false;
+    }
+  }
+  function onPointerMove(e){
+    preventDefault(e);
+    if(!isAiming) return;
+    let pos = getPointerPos(e);
+    if(!pointerInBoard(pos)){
+      canAim = false;
+      return;
+    }
+    let dx = pos.x - launchX;
+    let dy = pos.y - launchY;
+    // 只有向上（dy<0）才允许发射
+    if(dy < 0){
+      // 若与水平线夹角小于1°，则禁止发射（不显示虚线）
+      if(Math.abs(Math.atan2(dy, dx)) < (Math.PI/180)){
+        canAim = false;
+      } else {
+        canAim = true;
+        aimAngle = Math.atan2(dy, dx);
+      }
+    } else {
+      canAim = false;
+    }
+  }
+  function onPointerUp(e){
+    preventDefault(e);
+    if(!isAiming) return;
+    isAiming = false;
+    if(canAim){
+      // 若夹角小于1°，则不发射
+      if(Math.abs(aimAngle) < (Math.PI/180)){
+        return;
+      }
+      shootBalls(aimAngle);
+    }
+  }
+
+  /*******************************************************
+   * “快速落地”按钮
+   *******************************************************/
+  document.getElementById("fastDropBtn").addEventListener("click", ()=>{
+    if(!isShooting) return;
+    shootTimeouts.forEach(id => clearTimeout(id));
+    shootTimeouts = [];
+    if(!firstBallLanded){
+      firstBallLanded = true;
+      finalLandingX = launchX;
+    }
+    balls.forEach(b => {
+      b.y = boardY + cellSize * ROWS - b.radius;
+      b.x = finalLandingX;
+      b.landed = true;
+    });
+  });
+
+  /*******************************************************
+   * 重开按钮
+   *******************************************************/
+  document.getElementById("restartBtn").addEventListener("click", ()=>{
+    restartGame();
+  });
+  function showRestartBtn(){
+    document.getElementById("restartBtn").style.display = "inline-block";
+  }
+  function hideRestartBtn(){
+    document.getElementById("restartBtn").style.display = "none";
+  }
+  function restartGame(){
+    score = 0;
+    round = 1;
+    ballCount = 2;
+    blocks = [];
+    balls = [];
+    isShooting = false;
+    isAiming = false;
+    canAim = false;
+    shootTimeouts = [];
+    gameOver = false;
+    hideRestartBtn();
+    generateInitialBlocks();
+    updateLaunchPoint();
+    updateScoreUI();
+    updateRoundUI();
+    updateBallCountUI();
+    gameLoop();
+  }
+
+  /*******************************************************
+   * UI 更新
+   *******************************************************/
+  function updateScoreUI(){
+    document.getElementById("score").textContent = score;
+  }
+  function updateRoundUI(){
+    document.getElementById("roundNum").textContent = round;
+  }
+  function updateBallCountUI(){
+    document.getElementById("ballCount").textContent = ballCount;
+  }
+
+  /*******************************************************
+   * 主循环
+   *******************************************************/
+  function gameLoop(){
+    if(!gameOver){
+      updateBalls();
+      updateDropAnimation();
+      draw();
+      updateScoreUI();
+      updateBallCountUI();
+      requestAnimationFrame(gameLoop);
+    } else {
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0,0.7)";
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#fff";
+      ctx.font = "48px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("Game Over", W / 2, H / 2);
+      ctx.restore();
+    }
+  }
+  gameLoop();
+  </script>
+</body>
+</html>
