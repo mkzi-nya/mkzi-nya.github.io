@@ -1,212 +1,61 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>mkzi-nya's home</title>
-  <style>
-    /* 全局样式重置 */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    /* 顶部 Home 标题 */
-    .title {
-      position: fixed;
-      top: 30px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: #fff;
-      font-size: 2em;
-      font-weight: bold;
-      opacity: 0.8;
-      pointer-events: none;
-    }
-    /* 禁用页面滚动 */
-    body {
-      overflow: hidden;
-      background-color: #121212;
-      color: #e0e0e0;
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-      text-align: center;
-    }
-    /* 背景 canvas */
-    #lifeCanvas {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: -1;
-      filter: blur(1px);
-    }
-    /* 主内容区域 */
-    .content {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      padding: 20px;
-    }
-    /* 按钮容器 */
-    .button-container {
-      padding: 30px;
-      border-radius: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      align-items: center;
-      width: 100%;
-      max-width: 400px;
-    }
-    /* 按钮样式 */
-    .button-container a, .button-container button {
-      text-decoration: none;
-      background-color: rgba(51,51,51,0.5);
-      color: #e0e0e0;
-      padding: 15px 30px;
-      border-radius: 5px;
-      font-size: 1.2em;
-      transition: transform 0.1s ease, background-color 0.1s ease;
-      width: 100%;
-      text-align: center;
-      border: none;
-      cursor: pointer;
-    }
-    .button-container a:hover, .button-container button:hover {
-      background-color: rgba(68,68,68,0.5);
-    }
-    .button-container button:active {
-      transform: scale(1.05);
-      background-color: rgba(85,85,85,0.5);
-    }
-    /* 版权信息 */
-    footer {
-      position: fixed;
-      bottom: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      text-align: center;
-      font-size: 0.9em;
-      background: none;
-      padding: 0;
-    }
-
-    /* 模态框样式 */
-    .modal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.6);
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-    .modal-content {
-      background-color: #1f1f1f;
-      width: 80%;
-      max-width: 600px;
-      height: 70%;
-      border-radius: 10px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px;
-      background-color: #333;
-      color: white;
-      font-size: 1.2em;
-    }
-    .close-btn {
-      background: none;
-      border: none;
-      color: white;
-      font-size: 1.5em;
-      cursor: pointer;
-    }
-    .modal-body {
-      flex: 1;
-      overflow: auto;
-    }
-    .modal iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-  </style>
+  <meta charset="UTF-8" />
+  <title>输入法编码转换</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- 引入 CSS -->
+  <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <div class="title">Home</div>
-  <canvas id="lifeCanvas"></canvas>
+  <header>
+    <h1>输入法编码转换</h1>
+  </header>
 
-  <div class="content">
-    <div class="button-container">
-      <button onclick="animateButton(this, showMeow)">ฅ^•ﻌ•^ฅ</button>
-      <a href="https://mkzi-nya.github.io/milthm-calculator-web/" target="_blank">Milthm Calculator</a>
-      <a href="https://mkzi-nya.github.io/2048/index.html" target="_blank">2048</a>
-      <button onclick="openModal()">其他</button>
+  <main class="container">
+    <!-- 汉字/符号输入区 -->
+    <section>
+      <label for="inputChars">汉字</label>
+      <textarea id="inputChars" placeholder="请输入汉字或符号"></textarea>
+      <div class="btn-group">
+        <button data-clear="inputChars">清空</button>
+        <button data-copy="inputChars">复制</button>
+        <button data-paste="inputChars">从剪贴板导入</button>
+      </div>
+    </section>
+
+    <!-- 编码输入区 -->
+    <section>
+      <label for="inputCodes">编码</label>
+      <textarea id="inputCodes" placeholder="在此显示或输入编码"></textarea>
+      <div class="btn-group">
+        <button data-clear="inputCodes">清空</button>
+        <button data-copy="inputCodes">复制</button>
+        <button data-paste="inputCodes">从剪贴板导入</button>
+      </div>
+    </section>
+
+    <!-- 当前输入法显示（点击切换） -->
+    <div class="btn-group center">
+      <button id="chooseSchemaBtn">当前输入法</button>
+    </div>
+  </main>
+
+  <!-- 码表选择弹窗 -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <h2>选择码表</h2>
+      <ul id="schemaList"></ul>
+      <div class="btn-group center">
+        <button id="closeModalBtn">关闭</button>
+      </div>
     </div>
   </div>
 
   <footer>
-    © 2025 mkzi-nya
   </footer>
 
-  <!-- 模态框 -->
-  <div class="modal" id="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <span>其他</span>
-        <button class="close-btn" onclick="closeModal()">×</button>
-      </div>
-      <div class="modal-body">
-        <iframe src="links.html"></iframe>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const meowMessages = ["喵~", "Meow~", "Miau~", "にゃ~", "야옹~", "Мяу~", "Miaou~", "Mjau~", "Meeeooow~", "咪~", "ฅ^•ﻌ•^ฅ"];
-
-    function animateButton(button, callback) {
-      button.style.transform = "scale(1.2)";
-      button.style.backgroundColor = "rgba(85,85,85,0.5)";
-      setTimeout(() => {
-        button.style.transform = "scale(1)";
-        button.style.backgroundColor = "rgba(51,51,51,0.5)";
-        setTimeout(() => {
-          if (callback) callback();
-        }, 50);
-      }, 100);
-    }
-
-    function showMeow() {
-      alert(meowMessages[Math.floor(Math.random() * meowMessages.length)]);
-    }
-
-    // 打开模态框
-    function openModal() {
-      document.getElementById("modal").style.display = "flex";
-    }
-
-    // 关闭模态框
-    function closeModal() {
-      document.getElementById("modal").style.display = "none";
-    }
-  </script>
-
-  <script src="life game.js"></script>
+  <!-- 引入 JS -->
+  <script src="./style.js"></script>
 </body>
 </html>
