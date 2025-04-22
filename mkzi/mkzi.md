@@ -5,10 +5,10 @@
 - 特长：  
     是个废物qwq  
     没有学过编程，~会熟练运用ai~  
-- 兴趣爱好：爱整活，看小说，打打休闲的游戏(?，~看女装\~~
+- 兴趣爱好：爱整活，看小说，打打休闲的游戏(?，~看女装~\~
 - 输入法：[鹤形](https://flypy.cc/)（简），[倉頡](https://github.com/Jackchows/Cangjie5)（繁）
 - 曾练过的一些音游：phigros,milthm,notanote,arcaea,cytus  
     phigros：16.80(已退)，单手15.55  
-    milthm：12.56(pc)  
+    milthm：12.56(pc)，单指10.8(pc,已退)  
     arcaea：12.2(已退)  
 - some apps：[Home](./home.html)  
