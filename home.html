@@ -1,228 +1,214 @@
-
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh">
 <head>
- <meta charset="UTF-8" />
- <meta name="viewport" content="width=device-width, initial-scale=1.0" />
- <title>mkzi</title>
- <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
- <style>
-:root {
-  --bg-color: #1a1a1a;
-  --text-color: #ffffff;
-  --accent-color: #2ecc71;
-  --card-bg: rgba(255, 255, 255, 0.1);
-  --link-color: lightblue;
-}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mkzi-nya's home</title>
+  <style>
+    /* 全局样式重置 */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    /* 顶部 Home 标题 */
+    .title {
+      position: fixed;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #fff;
+      font-size: 2em;
+      font-weight: bold;
+      opacity: 0.8;
+      pointer-events: none;
+    }
+    /* 禁用页面滚动 */
+    body {
+      overflow: hidden;
+      background-color: #121212;
+      color: #e0e0e0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      text-align: center;
+    }
+    /* 背景 canvas */
+    #lifeCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      filter: blur(1px);
+    }
+    /* 主内容区域 */
+    .content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      padding: 20px;
+    }
+    /* 按钮容器 */
+    .button-container {
+      padding: 30px;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      align-items: center;
+      width: 100%;
+      max-width: 400px;
+    }
+    /* 按钮样式 */
+    .button-container a, .button-container button {
+      text-decoration: none;
+      background-color: rgba(51,51,51,0.5);
+      color: #e0e0e0;
+      padding: 15px 30px;
+      border-radius: 5px;
+      font-size: 1.2em;
+      transition: transform 0.1s ease, background-color 0.1s ease;
+      width: 100%;
+      text-align: center;
+      border: none;
+      cursor: pointer;
+    }
+    .button-container a:hover, .button-container button:hover {
+      background-color: rgba(68,68,68,0.5);
+    }
+    .button-container button:active {
+      transform: scale(1.05);
+      background-color: rgba(85,85,85,0.5);
+    }
+    /* 版权信息 */
+    footer {
+      position: fixed;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      font-size: 0.9em;
+      background: none;
+      padding: 0;
+    }
 
-[data-theme="light"] {
-  --bg-color: #f5f5f5;
-  --text-color: #333333;
-  --card-bg: rgba(0, 0, 0, 0.1);
-  --link-color: blue;
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  transition: background 0.3s ease, color 0.3s ease;
-}
-
-body {
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  line-height: 1.6;
-  min-height: 100vh;
-  padding: 2rem;
-}
-
-.container {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.header {
-  text-align: center;
-  margin-bottom: 2rem;
-}
-
-.avatar {
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  object-fit: cover;
-  margin-bottom: 1rem;
-  border: 3px solid var(--accent-color);
-}
-
-.name {
-  font-size: 2.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.bio {
-  background: var(--card-bg);
-  padding: 1.5rem;
-  border-radius: 10px;
-  margin-bottom: 2rem;
-}
-
-.bio a {
-  color: var(--link-color);
-  text-decoration: underline;
-}
-
-.social-row {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  margin-top: 2rem;
-  flex-wrap: nowrap;
-  width: 100%;
-  overflow-x: auto;
-  align-items: stretch;
-}
-
-.icon-only {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.8rem;
-  background: var(--card-bg);
-  border-radius: 10px;
-  text-decoration: none;
-  flex: 0 0 auto;
-  width: 60px;
-  height: 60px;
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
-}
-
-.icon-only i {
-  font-size: clamp(1.5rem, 5vw, 2rem);
-  color: #ffffff;
-}
-
-.social-card {
-  flex: 1 1 0;
-  display: flex;
-  align-items: center;
-  background: var(--card-bg);
-  padding: 0.8rem 1rem;
-  border-radius: 10px;
-  min-width: 0;
-  white-space: nowrap;
-}
-
-.social-card i {
-  font-size: clamp(1.2rem, 5vw, 2rem);
-  margin-right: 0.8rem;
-  color: var(--text-color);
-}
-
-.social-card a {
-  color: var(--link-color);
-  text-decoration: underline;
-  font-size: clamp(0.8rem, 4vw, 1rem);
-  display: block;
-  margin-bottom: 0.2rem;
-  word-break: break-word;
-}
-
-.theme-toggle {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  background: none;
-  border: none;
-  color: var(--text-color);
-  cursor: pointer;
-  font-size: 1.5rem;
-}
-
-@media (max-width: 768px) {
-  body {
-    padding: 1rem;
-  }
-
-  .name {
-    font-size: 2rem;
-  }
-
-  .avatar {
-    width: 120px;
-    height: 120px;
-  }
-
-  .social-card {
-    flex: 1 1 100%;
-    justify-content: flex-start;
-  }
-}
- </style>
+    /* 模态框样式 */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.6);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background-color: #1f1f1f;
+      width: 80%;
+      max-width: 600px;
+      height: 70%;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      background-color: #333;
+      color: white;
+      font-size: 1.2em;
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1.5em;
+      cursor: pointer;
+    }
+    .modal-body {
+      flex: 1;
+      overflow: auto;
+    }
+    .modal iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+  </style>
 </head>
 <body>
- <button class="theme-toggle" onclick="toggleTheme()">
-  <i class="fas fa-moon"></i>
- </button>
- <div class="container">
-  <header class="header">
-   <img src="./mkzi/mkzi.jpg" alt="头像" class="avatar" />
-   <h1 class="name">mkzi-nya</h1>
-  </header>
+  <div class="title">Home</div>
+  <canvas id="lifeCanvas"></canvas>
 
-  <section class="bio" id="bio-content">
-   <!-- Markdown 内容将在这里显示 -->
-  </section>
-
-  <!-- 社交卡片行 -->
-<div class="social-row">
- <!-- Discord 图标 -->
- <a href="https://discordapp.com/users/1135097559891853435" target="_blank" class="icon-only">
-  <i class="fab fa-discord"></i>
- </a>
-
- <!-- GitHub 图标 -->
- <a href="https://github.com/mkzi-nya" target="_blank" class="icon-only">
-  <i class="fab fa-github"></i>
- </a>
-
- <!-- QQ 卡片 -->
- <div class="social-card">
-  <i class="fab fa-qq"></i>
-  <div>
-   <a href="https://qm.qq.com/q/UfEfmy7MEE" target="_blank">2450382239</a>
-   <a href="https://qm.qq.com/q/IfsuPxdYEo" target="_blank">2013773457</a>
+  <div class="content">
+    <div class="button-container">
+      <!---<button onclick="animateButton(this, showMeow)">ฅ^•ﻌ•^ฅ</button>--->
+      <a href="https://mkzi-nya.github.io/milthm-calculator-web/" target="_blank">Milthm Calculator</a>
+      <a href="https://mkzi-nya.github.io/notanote-calculator/" target="_blank">Notanote Calculator</a>
+      <a href="https://mkzi-nya.github.io/IME-Converter-web/index.html" target="_blank">输入法编码转换</a>
+      <a href="https://mkzi-nya.github.io/2048/index.html" target="_blank">2048</a>
+      <button onclick="openModal()">其他</button>
+    </div>
   </div>
- </div>
-</div>
 
- </div>
+  <footer>
+    © 2025 mkzi-nya
+  </footer>
 
- <script>
-  fetch('./mkzi/mkzi.md')
-   .then(response => response.text())
-   .then(markdown => {
-    document.getElementById('bio-content').innerHTML = marked.parse(markdown);
-   })
-   .catch(() => {
-    document.getElementById('bio-content').innerHTML = '<p>未能加载个人介绍</p>';
-   });
+  <!-- 模态框 -->
+  <div class="modal" id="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span>其他</span>
+        <button class="close-btn" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <iframe src="links.html"></iframe>
+      </div>
+    </div>
+  </div>
 
-  function toggleTheme() {
-   const body = document.body;
-   const themeToggle = document.querySelector('.theme-toggle i');
-   if (body.getAttribute('data-theme') === 'light') {
-    body.removeAttribute('data-theme');
-    themeToggle.className = 'fas fa-moon';
-   } else {
-    body.setAttribute('data-theme', 'light');
-    themeToggle.className = 'fas fa-sun';
-   }
-  }
- </script>
+  <script>
+    const meowMessages = ["喵~", "Meow~", "Miau~", "にゃ~", "야옹~", "Мяу~", "Miaou~", "Mjau~", "Meeeooow~", "咪~", "ฅ^•ﻌ•^ฅ"];
+
+    function animateButton(button, callback) {
+      button.style.transform = "scale(1.2)";
+      button.style.backgroundColor = "rgba(85,85,85,0.5)";
+      setTimeout(() => {
+        button.style.transform = "scale(1)";
+        button.style.backgroundColor = "rgba(51,51,51,0.5)";
+        setTimeout(() => {
+          if (callback) callback();
+        }, 50);
+      }, 100);
+    }
+
+    function showMeow() {
+      alert(meowMessages[Math.floor(Math.random() * meowMessages.length)]);
+    }
+
+    // 打开模态框
+    function openModal() {
+      document.getElementById("modal").style.display = "flex";
+    }
+
+    // 关闭模态框
+    function closeModal() {
+      document.getElementById("modal").style.display = "none";
+    }
+  </script>
+
+  <script src="life game.js"></script>
 </body>
 </html>
