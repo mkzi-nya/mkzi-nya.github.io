@@ -11,4 +11,4 @@
     phigros：16.80(已退)，单手[15.55](./mkzi/phi.jpg)  
     milthm：[12.56](./mkzi/mil.png)(pc)，单指10.8(pc,已退)  
     arcaea：[12.2](./mkzi/arc.jpg)(已退)  
-- some apps：[Home](./home.html)  
+- some apps：[Home](./home.html)，[Milthm calc](https://mkzi-nya.github.io/milthm-calculator-web/)，[Notanote calc](https://mkzi-nya.github.io/notanote-calculator/)  
