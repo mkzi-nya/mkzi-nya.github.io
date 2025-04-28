@@ -1,0 +1,175 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>猜歌名工具</title>
+<style>
+html,body{margin:0;padding:0;overflow-x:hidden;
+          font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#333}
+h1,h2{font-family:"Helvetica Neue",Arial,sans-serif;margin:10px 0}
+a{color:#3498db;text-decoration:none}a:hover{text-decoration:underline}
+button{display:inline-block;padding:7px 10px;background:CadetBlue;color:#fff;border:none;
+       border-radius:10px;font-size:14px;cursor:pointer}button:hover{background:#2980b9}
+.showList{border:1px solid #ccc;padding:10px;border-radius:4px}
+.monoText{font-family:Consolas,monospace;font-size:14px}
+.row{display:flex}.row label{width:70px}
+li{margin-bottom:5px}.boxSize{box-sizing:border-box;width:352px;padding:5px;border:1px solid #ccc}
+input[type=text]{padding:5px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box}
+textarea{padding:5px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box}
+@media(max-width:600px){
+  input[type=text],textarea,.boxSize{width:80vw !important}
+  .row label{width:auto}
+}
+</style>
+</head>
+<body>
+<h1>猜歌名工具</h1>
+
+<h2>Songs List</h2>
+<div class="showList" style="margin-left:20px">
+  <div class="row">
+    <label>show</label><label style="flex:1"></label><label>del</label><label>hide</label>
+  </div>
+  <ol id="listbox"></ol>
+  <button onclick="add()"> + </button>
+  <input type="checkbox" id="ALL" onclick="selectAll()">
+  <button onclick="sort_by_length()">Sort By Length</button>
+</div>
+
+<h2>Output <button onclick="toClipboard()">Copy to Clipboard</button></h2>
+<div class="showList" style="margin-left:20px">
+  <pre id="output" class="monoText" style="white-space:pre-wrap"></pre>
+</div>
+
+<div>
+  <label><strong>guess</strong></label>
+  <input type="text" id="guess">
+  <button onclick="refresh()">refresh</button>
+  <input type="checkbox" id="sort" onchange="refresh()"><label>auto sort</label>
+</div>
+
+<div class="showList">
+  <label>Import from text (will clear existing items)</label><p></p>
+  <textarea id="importBox" rows="20" placeholder="">1. xxx</textarea><p></p>
+  <button onclick="import_from_output()">Import</button>
+</div>
+
+<script>
+/* ===== 1. 加载数据库并建立部首映射 ===== */
+const ziDB=new Map();                 // zi -> {stroke, radicalCanon, leaf}
+const radicalMap=new Map();           // variant -> radicalCanon
+fetch('./zi-dataset.tsv')
+ .then(r=>r.ok?r.text():Promise.reject('load fail'))
+ .then(txt=>{
+   const lines=txt.trim().split(/\r?\n/);
+   for(let i=1;i<lines.length;i++){
+     const c=lines[i].split('\t');
+     const zi=c[0];
+     const stroke=(c[1].match(/\d+/)||[''])[0];
+     const radStr=c[6]||'';
+     const leaf=c[13]||'';
+     const variants=radStr.split('/');
+     const canon=variants[0]||'';
+     variants.forEach(v=>radicalMap.set(v,canon));
+     ziDB.set(zi,{stroke,radical:canon,leaf});
+   }
+   refresh();
+ });
+
+/* ===== 2. DOM ===== */
+const listbox=document.getElementById('listbox');
+const guessbox=document.getElementById('guess');
+const output=document.getElementById('output');
+const importBox=document.getElementById('importBox');
+const sortOpt=document.getElementById('sort');
+
+/* ===== 3. 核心刷新 ===== */
+function refresh(){
+ if(sortOpt.checked) guessbox.value=[...guessbox.value].sort().join('');
+ const guessRaw=guessbox.value;
+ const guessSet=new Set(guessRaw.split(''));         // 逐字
+ const numSet=new Set((guessRaw.match(/\d+/g)||[])); // 连续数字串
+ /* 3.1 已猜中的部首（用 canonical 名称） */
+ const guessedRadicalCanon=new Set();
+ for(const ch of guessSet){
+   if(radicalMap.has(ch)) guessedRadicalCanon.add(radicalMap.get(ch));
+ }
+ /* 3.2 所有歌曲里的部首集合 */
+ const radicalCanonSet=new Set();
+ for(const li of listbox.children){
+   if(li.tagName!=='LI'||li.childNodes[5].checked) continue;
+   for(const ch of li.childNodes[2].value){
+     const rec=ziDB.get(ch); if(rec) radicalCanonSet.add(rec.radical);
+   }
+ }
+ /* 3.3 输出 */
+ let res='存在的部首:'+
+         [...radicalCanonSet].filter(r=>!guessedRadicalCanon.has(r)).join('')+'\n';
+ res+='gussed:'+[...guessSet].join(',')+'\n';
+ let idx=0;
+ for(const li of listbox.children){
+   if(li.tagName!=='LI'||li.childNodes[5].checked) continue;
+   idx++;
+   const song=li.childNodes[2].value; let line=idx+'. ';
+   for(const ch of song){
+     if(guessSet.has(ch)){line+=ch+' ';continue;}
+     const rec=ziDB.get(ch);
+     if(!rec){line+='* ';continue;}
+     const stroke = numSet.has(rec.stroke)?rec.stroke:'*';
+     const radical= guessedRadicalCanon.has(rec.radical)?rec.radical:'*';
+     const leaf   = rec.leaf.split('').map(c=>{
+                    if(c==='/')return'/';
+                    return guessSet.has(c)?c:'*';
+                   }).join('');
+     line+=`*(${stroke},${radical},${leaf}) `;
+   }
+   res+=line.trim()+'\n';
+ }
+ res+='格式说明：未开出显示为 *(笔画,部首,叶子)';
+ output.textContent=res;
+}
+
+/* ===== 4. 辅助函数 ===== */
+function add(){
+ const id=Date.now();
+ const li=document.createElement('li');
+ li.id=id;
+ li.style='width:530px';
+ li.innerHTML=`<input type="checkbox" onchange="refresh()">
+  <input type="text" class="boxSize monoText" onchange="refresh()">
+  <button onclick="remove(${id})" style="margin:0 20px">x</button>
+  <input type="checkbox" onchange="refresh()">`;
+ listbox.appendChild(li);
+}
+function remove(id){document.getElementById(id).remove();refresh();}
+function selectAll(){
+ const all=document.getElementById('ALL').checked;
+ [...listbox.children].filter(li=>li.tagName==='LI')
+   .forEach(li=>li.childNodes[0].checked=all);
+ refresh();
+}
+function sort_by_length(){
+ const arr=[...listbox.children].filter(li=>li.tagName==='LI');
+ arr.sort((a,b)=>a.childNodes[2].value.length-b.childNodes[2].value.length);
+ listbox.innerHTML='';arr.forEach(li=>listbox.appendChild(li));refresh();}
+function import_from_output(){
+ listbox.innerHTML='';
+ const s=importBox.value;localStorage.songlist=s;
+ s.split('\n').forEach(l=>{
+   if(!l.trim())return;
+   const n=l.split('.')[0]; if(isNaN(+n))return;
+   add();listbox.lastChild.childNodes[2].value=l.slice(n.length+1).trim();
+ });
+ refresh();}
+function toClipboard(){navigator.clipboard.writeText(output.innerText);}
+
+/* ===== 5. 初始加载 ===== */
+window.onload=()=>{
+ if(typeof localStorage.songlist==='string') importBox.value=localStorage.songlist;
+ import_from_output();
+};
+guessbox.oninput=refresh;
+</script>
+</body>
+</html>
