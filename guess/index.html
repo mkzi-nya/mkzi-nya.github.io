@@ -1,175 +1,248 @@
-<!DOCTYPE HTML>
-<html>
+<!DOCTYPE html>
+<html lang="zh">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>猜歌名工具</title>
 <style>
-html,body{margin:0;padding:0;overflow-x:hidden;
-          font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#333}
-h1,h2{font-family:"Helvetica Neue",Arial,sans-serif;margin:10px 0}
-a{color:#3498db;text-decoration:none}a:hover{text-decoration:underline}
-button{display:inline-block;padding:7px 10px;background:CadetBlue;color:#fff;border:none;
-       border-radius:10px;font-size:14px;cursor:pointer}button:hover{background:#2980b9}
-.showList{border:1px solid #ccc;padding:10px;border-radius:4px}
-.monoText{font-family:Consolas,monospace;font-size:14px}
-.row{display:flex}.row label{width:70px}
-li{margin-bottom:5px}.boxSize{box-sizing:border-box;width:352px;padding:5px;border:1px solid #ccc}
-input[type=text]{padding:5px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box}
-textarea{padding:5px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box}
-@media(max-width:600px){
-  input[type=text],textarea,.boxSize{width:80vw !important}
-  .row label{width:auto}
+:root{ --bg:#fff; --fg:#000; --card:#f7f7f7; --input-bg:#fff; --input-fg:#000; --accent:#3498db;}
+@media(prefers-color-scheme:dark){
+ :root{ --bg:#121212; --fg:#e0e0e0; --card:#1e1e1e; --input-bg:#2a2a2a; --input-fg:#e0e0e0; --accent:#5dade2;}
 }
+html.light{ --bg:#fff!important;--fg:#000!important;--card:#f7f7f7!important;--input-bg:#fff!important;--input-fg:#000!important}
+html.dark { --bg:#121212!important;--fg:#e0e0e0!important;--card:#1e1e1e!important;--input-bg:#2a2a2a!important;--input-fg:#e0e0e0!important}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:Arial,Helvetica,sans-serif;line-height:1.5;overflow-x:hidden}
+h1{margin:16px 16px 8px;font-size:1.4rem}
+h2{margin:16px;font-size:1.1rem}
+button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer}
+button:hover{opacity:.9}
+select{padding:6px;border-radius:4px}
+.container{padding:0 16px 32px}
+.card{background:var(--card);padding:12px;border-radius:8px;margin:8px 0}
+input[type=text],textarea{background:var(--input-bg);color:var(--input-fg);border:1px solid #ccc;border-radius:4px;padding:6px;width:80%;max-width:400px;margin:4px 0}
+textarea{height:120px;resize:vertical}
+pre{white-space:pre-wrap;word-break:break-all;background:var(--input-bg);padding:8px;border-radius:6px;max-height:300px;overflow-y:auto}
+.song-row{display:flex;align-items:center;margin-bottom:4px}
+.song-row input[type=text]{flex:1;margin:0 6px}
+@media(max-width:600px){input[type=text],textarea{width:90%}}
+.theme-toggle{position:fixed;top:10px;right:14px;font-size:20px;background:none;border:none;color:var(--fg)}
 </style>
 </head>
 <body>
-<h1>猜歌名工具</h1>
+<button class="theme-toggle" onclick="toggleTheme()">🌙</button>
 
-<h2>Songs List</h2>
-<div class="showList" style="margin-left:20px">
-  <div class="row">
-    <label>show</label><label style="flex:1"></label><label>del</label><label>hide</label>
+<div class="container">
+  <h1>猜歌名工具</h1>
+
+  <h2>歌曲列表</h2>
+  <div id="listbox" class="card"></div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
+    <button onclick="add()">＋ 添加歌曲</button>
+    <button onclick="sort_by_length()">按长度排序</button>
+    <button onclick="selectAll()">全选/反选</button>
   </div>
-  <ol id="listbox"></ol>
-  <button onclick="add()"> + </button>
-  <input type="checkbox" id="ALL" onclick="selectAll()">
-  <button onclick="sort_by_length()">Sort By Length</button>
-</div>
 
-<h2>Output <button onclick="toClipboard()">Copy to Clipboard</button></h2>
-<div class="showList" style="margin-left:20px">
-  <pre id="output" class="monoText" style="white-space:pre-wrap"></pre>
-</div>
+  <h2>猜测输入</h2>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+    <label>guess:</label>
+    <input id="guess" type="text" placeholder="输入汉字、部首或数字笔画">
+    <button onclick="refresh()">刷新</button>
+    <label><input id="sort" type="checkbox" onchange="refresh()"> 自动排序</label>
+    <label><input id="showLeaf" type="checkbox" onchange="refresh()"> 显示剩余部件</label>
+  </div>
 
-<div>
-  <label><strong>guess</strong></label>
-  <input type="text" id="guess">
-  <button onclick="refresh()">refresh</button>
-  <input type="checkbox" id="sort" onchange="refresh()"><label>auto sort</label>
-</div>
+  <h2>输出结果 <button onclick="toClipboard()">复制</button></h2>
+  <div class="card"><pre id="output"></pre></div>
 
-<div class="showList">
-  <label>Import from text (will clear existing items)</label><p></p>
-  <textarea id="importBox" rows="20" placeholder="">1. xxx</textarea><p></p>
-  <button onclick="import_from_output()">Import</button>
+  <h2>批量导入 / 导出</h2>
+  <div class="card" style="display:flex;flex-wrap:wrap;gap:16px">
+    <div style="flex:1 1 300px">
+      <textarea id="importBox" placeholder="1. 歌曲名……"></textarea><br>
+      <button onclick="import_from_text()">导入 (覆盖)</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <label>歌曲范围
+        <select id="songRange">
+          <option value="milthm">milthm</option>
+        </select>
+      </label>
+      <label>限制
+        <select id="limitType">
+          <option value="none">无</option>
+          <option value="letters">只包含字母</option>
+          <option value="hanOnly">只包含汉字</option>
+          <option value="noHan">不包含汉字</option>
+        </select>
+      </label>
+      <button onclick="addRandomSongs()">随机歌曲 (10 首)</button>
+    </div>
+  </div>
 </div>
 
 <script>
-/* ===== 1. 加载数据库并建立部首映射 ===== */
-const ziDB=new Map();                 // zi -> {stroke, radicalCanon, leaf}
-const radicalMap=new Map();           // variant -> radicalCanon
-fetch('./zi-dataset.tsv')
- .then(r=>r.ok?r.text():Promise.reject('load fail'))
- .then(txt=>{
-   const lines=txt.trim().split(/\r?\n/);
-   for(let i=1;i<lines.length;i++){
-     const c=lines[i].split('\t');
-     const zi=c[0];
-     const stroke=(c[1].match(/\d+/)||[''])[0];
-     const radStr=c[6]||'';
-     const leaf=c[13]||'';
-     const variants=radStr.split('/');
-     const canon=variants[0]||'';
-     variants.forEach(v=>radicalMap.set(v,canon));
-     ziDB.set(zi,{stroke,radical:canon,leaf});
-   }
-   refresh();
- });
+/* ===== 1. 汉字数据库 ===== */
+const ziDB=new Map(), radicalMap=new Map();
+fetch('./zi-dataset.tsv').then(r=>r.text()).then(txt=>{
+  const ls=txt.trim().split(/\r?\n/);
+  for(let i=1;i<ls.length;i++){
+    const t=ls[i].split('\t');
+    const zi=t[0], stroke=(t[1].match(/\d+/)||[''])[0];
+    const vars=(t[6]||'').split('/');
+    const canon=vars[0]||'';
+    const leaf=t[13]||'';
+    vars.forEach(v=>radicalMap.set(v,canon));
+    ziDB.set(zi,{stroke,radical:canon,leaf});
+  }
+  refresh();
+});
 
 /* ===== 2. DOM ===== */
 const listbox=document.getElementById('listbox');
 const guessbox=document.getElementById('guess');
 const output=document.getElementById('output');
-const importBox=document.getElementById('importBox');
 const sortOpt=document.getElementById('sort');
+const showLeaf=document.getElementById('showLeaf');
+const importBox=document.getElementById('importBox');
 
-/* ===== 3. 核心刷新 ===== */
+/* ===== 3. 工具 ===== */
+const hanRegex=/[\u4e00-\u9fff]/;
+function strokeGuessed(stroke,numStrings){return numStrings.some(s=>s.includes(stroke));}
+function syncImportBox(){
+  const lines=[], names=[...listbox.querySelectorAll('.name')];
+  names.forEach((inp,i)=>{const v=inp.value.trim();if(v)lines.push(`${i+1}. ${v}`);});
+  importBox.value=lines.join('\n');
+}
+function filterTitle(title,limit){
+  switch(limit){
+    case 'letters':  return /^[A-Za-z\s]+$/.test(title);
+    case 'hanOnly':  return /^[\u4e00-\u9fff]+$/.test(title);
+    case 'noHan':    return !hanRegex.test(title);
+    default: return true;
+  }
+}
+
+/* ===== 4. 刷新 ===== */
 function refresh(){
- if(sortOpt.checked) guessbox.value=[...guessbox.value].sort().join('');
- const guessRaw=guessbox.value;
- const guessSet=new Set(guessRaw.split(''));         // 逐字
- const numSet=new Set((guessRaw.match(/\d+/g)||[])); // 连续数字串
- /* 3.1 已猜中的部首（用 canonical 名称） */
- const guessedRadicalCanon=new Set();
- for(const ch of guessSet){
-   if(radicalMap.has(ch)) guessedRadicalCanon.add(radicalMap.get(ch));
- }
- /* 3.2 所有歌曲里的部首集合 */
- const radicalCanonSet=new Set();
- for(const li of listbox.children){
-   if(li.tagName!=='LI'||li.childNodes[5].checked) continue;
-   for(const ch of li.childNodes[2].value){
-     const rec=ziDB.get(ch); if(rec) radicalCanonSet.add(rec.radical);
-   }
- }
- /* 3.3 输出 */
- let res='存在的部首:'+
-         [...radicalCanonSet].filter(r=>!guessedRadicalCanon.has(r)).join('')+'\n';
- res+='gussed:'+[...guessSet].join(',')+'\n';
- let idx=0;
- for(const li of listbox.children){
-   if(li.tagName!=='LI'||li.childNodes[5].checked) continue;
-   idx++;
-   const song=li.childNodes[2].value; let line=idx+'. ';
-   for(const ch of song){
-     if(guessSet.has(ch)){line+=ch+' ';continue;}
-     const rec=ziDB.get(ch);
-     if(!rec){line+='* ';continue;}
-     const stroke = numSet.has(rec.stroke)?rec.stroke:'*';
-     const radical= guessedRadicalCanon.has(rec.radical)?rec.radical:'*';
-     const leaf   = rec.leaf.split('').map(c=>{
-                    if(c==='/')return'/';
-                    return guessSet.has(c)?c:'*';
-                   }).join('');
-     line+=`*(${stroke},${radical},${leaf}) `;
-   }
-   res+=line.trim()+'\n';
- }
- res+='格式说明：未开出显示为 *(笔画,部首,叶子)';
- output.textContent=res;
+  if(sortOpt.checked) guessbox.value=[...guessbox.value].sort().join('');
+  const raw=guessbox.value;
+  const charSet=new Set(raw.split(''));
+  const numStrs=Array.from(raw.match(/\d+/g)||[]);
+  const guessedRad=new Set([...charSet].filter(c=>radicalMap.has(c)).map(c=>radicalMap.get(c)));
+
+  /* 4.1 统计剩余部首/部件 & 所有笔画 */
+  const remRad=new Set(), remLeaf=new Set(), allStroke=new Set(), guessedStroke=new Set();
+  listbox.querySelectorAll('.song-row').forEach(row=>{
+    const name=row.querySelector('.name').value;
+    for(const ch of name){
+      const rec=ziDB.get(ch); if(!rec) continue;
+      allStroke.add(rec.stroke);
+      const opened = charSet.has(ch);
+      if(!opened){
+        remRad.add(rec.radical);
+        rec.leaf.split('/').forEach(l=>l&&remLeaf.add(l));
+      }else{
+        guessedStroke.add(rec.stroke);
+      }
+      if(strokeGuessed(rec.stroke,numStrs)) guessedStroke.add(rec.stroke);
+    }
+  });
+  guessedRad.forEach(r=>remRad.delete(r));
+  remLeaf.forEach(l=>{if(charSet.has(l))remLeaf.delete(l);});
+
+  /* 4.2 gussed 列表（字符+多位笔画） */
+  const gussedArr=[...new Set(raw.split(''))];
+  guessedStroke.forEach(st=>{if(!gussedArr.includes(st))gussedArr.push(st);});
+
+  /* 4.3 输出头部 */
+  let out='存在的部首: '+[...remRad].join('')+'\n';
+  if(showLeaf.checked) out+='剩余部件: '+[...remLeaf].join('')+'\n';
+  out+='gussed: '+gussedArr.join(',')+'\n';
+
+  /* 4.4 每首歌 */
+  let idx=0;
+  listbox.querySelectorAll('.song-row').forEach(row=>{
+    const showInfo=row.querySelector('.show-cbx').checked;
+    const name=row.querySelector('.name').value;
+    if(!name) return;
+    idx++;
+    let line=idx+'. ';
+    for(const ch of name){
+      const rec=ziDB.get(ch);
+      const guessed=charSet.has(ch);
+      if(rec){
+        if(guessed){
+          line+=ch+' ';
+        }else{
+          const st=strokeGuessed(rec.stroke,numStrs)||showInfo?rec.stroke:'*';
+          const rd=guessedRad.has(rec.radical)||showInfo?rec.radical:'*';
+          const lf=rec.leaf.split('').map(c=>c==='/'?'/':((charSet.has(c)||showInfo)?c:'*')).join('');
+          line+=(showInfo?ch:'*')+`(${st},${rd},${lf}) `;
+        }
+      }else{
+        line+=(guessed||showInfo?ch:'*')+' ';
+      }
+    }
+    out+=line.trimEnd()+'\n';
+  });
+  out+='格式说明：未开出显示为 *(笔画,部首,叶子)';
+  output.textContent=out;
+  syncImportBox();
 }
 
-/* ===== 4. 辅助函数 ===== */
-function add(){
- const id=Date.now();
- const li=document.createElement('li');
- li.id=id;
- li.style='width:530px';
- li.innerHTML=`<input type="checkbox" onchange="refresh()">
-  <input type="text" class="boxSize monoText" onchange="refresh()">
-  <button onclick="remove(${id})" style="margin:0 20px">x</button>
-  <input type="checkbox" onchange="refresh()">`;
- listbox.appendChild(li);
+/* ===== 5. 歌曲行 ===== */
+function add(name=''){
+  const row=document.createElement('div');
+  row.className='song-row';
+  row.innerHTML=`
+    <label><input type="checkbox" class="show-cbx" onchange="refresh()">Show</label>
+    <input class="name" type="text" placeholder="歌曲名" value="${name}" oninput="refresh()">
+    <button onclick="this.parentNode.remove();refresh()">×</button>`;
+  listbox.appendChild(row);
+  refresh();
 }
-function remove(id){document.getElementById(id).remove();refresh();}
-function selectAll(){
- const all=document.getElementById('ALL').checked;
- [...listbox.children].filter(li=>li.tagName==='LI')
-   .forEach(li=>li.childNodes[0].checked=all);
- refresh();
-}
+function selectAll(){listbox.querySelectorAll('.show-cbx').forEach(cb=>cb.checked=!cb.checked);refresh();}
 function sort_by_length(){
- const arr=[...listbox.children].filter(li=>li.tagName==='LI');
- arr.sort((a,b)=>a.childNodes[2].value.length-b.childNodes[2].value.length);
- listbox.innerHTML='';arr.forEach(li=>listbox.appendChild(li));refresh();}
-function import_from_output(){
- listbox.innerHTML='';
- const s=importBox.value;localStorage.songlist=s;
- s.split('\n').forEach(l=>{
-   if(!l.trim())return;
-   const n=l.split('.')[0]; if(isNaN(+n))return;
-   add();listbox.lastChild.childNodes[2].value=l.slice(n.length+1).trim();
- });
- refresh();}
-function toClipboard(){navigator.clipboard.writeText(output.innerText);}
+  [...listbox.children].sort((a,b)=>a.querySelector('.name').value.length-b.querySelector('.name').value.length)
+    .forEach(r=>listbox.appendChild(r));
+  refresh();
+}
+function import_from_text(){
+  listbox.innerHTML='';
+  importBox.value.split('\n').forEach(l=>{const m=l.match(/^\s*\d+\.\s*(.+)$/);if(m)add(m[1].trim());});
+  if(!listbox.children.length)add();
+  refresh();
+}
 
-/* ===== 5. 初始加载 ===== */
-window.onload=()=>{
- if(typeof localStorage.songlist==='string') importBox.value=localStorage.songlist;
- import_from_output();
-};
+/* ===== 6. 随机歌曲 ===== */
+async function addRandomSongs(){
+  const range=document.getElementById('songRange').value;
+  const limit=document.getElementById('limitType').value;
+  try{
+    const txt=await fetch(`./${range}.txt`).then(r=>r.text());
+    const pool=txt.split(/\r?\n/).map(s=>s.trim()).filter(s=>s);
+    const available=pool.filter(t=>filterTitle(t,limit));
+    if(!available.length){alert('符合条件的歌曲为空');return;}
+    const chosen=new Set();
+    while(chosen.size<10 && chosen.size<available.length){
+      const pick=available[Math.floor(Math.random()*available.length)];
+      if(![...listbox.querySelectorAll('.name')].some(i=>i.value.trim()===pick))
+        chosen.add(pick);
+    }
+    chosen.forEach(t=>add(t));
+  }catch(e){alert('读取歌曲文件失败');console.error(e);}
+}
+
+/* ===== 7. 主题切换 ===== */
+function initTheme(){const s=localStorage.theme;if(s==='light'||s==='dark')document.documentElement.className=s;updateThemeIcon();}
+function toggleTheme(){document.documentElement.className=document.documentElement.className==='dark'?'light':'dark';localStorage.theme=document.documentElement.className;updateThemeIcon();}
+function updateThemeIcon(){document.querySelector('.theme-toggle').textContent=document.documentElement.className==='dark'?'☀️':'🌙';}
+initTheme();
+
+/* ===== 8. bind ===== */
 guessbox.oninput=refresh;
+window.onload=()=>{if(!listbox.children.length)add();};
+function toClipboard(){navigator.clipboard.writeText(output.textContent);}
 </script>
 </body>
 </html>
