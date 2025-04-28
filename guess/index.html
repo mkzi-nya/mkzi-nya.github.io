@@ -120,7 +120,6 @@
     const importBox=document.getElementById('importBox');
     const showRadical=document.getElementById('showRadical');
 
-
     /* ===== 3. 工具 ===== */
     const hanRegex=/[\u4e00-\u9fff]/;
     function strokeGuessed(stroke,numStrings){return numStrings.some(s=>s.includes(stroke));}
@@ -144,11 +143,13 @@
       const state={
         songs:[...listbox.querySelectorAll('.song-row')].map(row=>({
           name:row.querySelector('.name').value,
-          show:row.querySelector('.show-cbx').checked
+          show:row.querySelector('.show-cbx').checked,
+          hide:row.querySelector('.hide-cbx').checked
         })),
         guess:guessbox.value,
         sort:sortOpt.checked,
-        showLeaf:showLeaf.checked
+        showLeaf:showLeaf.checked,
+        showRadical:showRadical.checked
       };
       localStorage.guessSongState=JSON.stringify(state);
     }
@@ -158,10 +159,11 @@
         try{
           const st=JSON.parse(saved);
           listbox.innerHTML='';
-          (st.songs||[]).forEach(s=>add(s.name,s.show));
+          (st.songs||[]).forEach(s=>add(s.name,s.show,s.hide));
           guessbox.value=st.guess||'';
           sortOpt.checked=!!st.sort;
           showLeaf.checked=!!st.showLeaf;
+          showRadical.checked=!!st.showRadical;
         }catch(e){console.error('loadState error',e);}
       }
       refresh();
@@ -175,9 +177,10 @@
       const numStrs=Array.from(raw.match(/\d+/g)||[]);
       const guessedRad=new Set([...charSet].filter(c=>radicalMap.has(c)).map(c=>radicalMap.get(c)));
 
-      /* 5.1 统计剩余部首/部件 & 所有笔画 */
       const remRad=new Set(), remLeaf=new Set(), allStroke=new Set(), guessedStroke=new Set();
       listbox.querySelectorAll('.song-row').forEach(row=>{
+        const hide = row.querySelector('.hide-cbx').checked;
+        if (hide) return;
         const name=row.querySelector('.name').value;
         for(const ch of name){
           const rec=ziDB.get(ch); if(!rec) continue;
@@ -195,30 +198,29 @@
       guessedRad.forEach(r=>remRad.delete(r));
       remLeaf.forEach(l=>{if(charSet.has(l))remLeaf.delete(l);});
 
-      /* 5.2 gussed 列表（字符+多位笔画） */
       const gussedArr=[...new Set(raw.split(''))];
       guessedStroke.forEach(st=>{if(!gussedArr.includes(st))gussedArr.push(st);});
 
-      /* 5.3 输出头部 */
-let out='';
-if(showRadical.checked) out+='剩余部首: '+[...remRad].join('')+'\n';
-if(showLeaf.checked) out+='剩余部件: '+[...remLeaf].join('')+'\n';
+      let out='';
+      if(showRadical.checked) out+='剩余部首: '+[...remRad].join('')+'\n';
+      if(showLeaf.checked) out+='剩余部件: '+[...remLeaf].join('')+'\n';
       out+='gussed: '+gussedArr.join(',')+'\n';
 
-      /* 5.4 每首歌 */
       let idx=0;
       listbox.querySelectorAll('.song-row').forEach(row=>{
-        const showInfo=row.querySelector('.show-cbx').checked;
-        const name=row.querySelector('.name').value;
-        if(!name) return;
+        const hide = row.querySelector('.hide-cbx').checked;
+        if (hide) return;
+        const showInfo = row.querySelector('.show-cbx').checked;
+        const name = row.querySelector('.name').value;
+        if (!name) return;
         idx++;
-        let line=idx+'. ';
+        let line = idx+'. ';
         for(const ch of name){
           const rec=ziDB.get(ch);
           const guessed=charSet.has(ch);
           if(rec){
             if(guessed){
-              line+=ch+'';
+              line+=ch;
             }else{
               const st=strokeGuessed(rec.stroke,numStrs)||showInfo?rec.stroke:'*';
               const rd=guessedRad.has(rec.radical)||showInfo?rec.radical:'*';
@@ -226,7 +228,7 @@ if(showLeaf.checked) out+='剩余部件: '+[...remLeaf].join('')+'\n';
               line+=(showInfo?ch:'*')+`(${st},${rd},${lf})`;
             }
           }else{
-            line+=(guessed||showInfo?ch:'*')+'';
+            line+=(guessed||showInfo?ch:'*');
           }
         }
         out+=line.trimEnd()+'\n';
@@ -238,14 +240,21 @@ if(showLeaf.checked) out+='剩余部件: '+[...remLeaf].join('')+'\n';
     }
 
     /* ===== 6. 歌曲行 ===== */
-    function add(name='',show=false){
+    function add(name='',show=false,hide=false){
       const row=document.createElement('div');
       row.className='song-row';
       row.innerHTML=`
-        <label><input type="checkbox" class="show-cbx"${show?' checked':''} onchange="refresh()">Show</label>
+        <label><input type="checkbox" class="show-cbx"${show?' checked':''} onchange="syncShowHide(this)">Show</label>
+        <label><input type="checkbox" class="hide-cbx"${hide?' checked':''} onchange="syncShowHide(this)">Hide</label>
         <input class="name" type="text" placeholder="歌曲名" value="${name}" oninput="refresh()">
         <button onclick="this.parentNode.remove();refresh()">×</button>`;
       listbox.appendChild(row);
+      refresh();
+    }
+    function syncShowHide(cb){
+      const row = cb.closest('.song-row');
+      if(cb.classList.contains('show-cbx') && cb.checked) row.querySelector('.hide-cbx').checked = false;
+      if(cb.classList.contains('hide-cbx') && cb.checked) row.querySelector('.show-cbx').checked = false;
       refresh();
     }
     function selectAll(){listbox.querySelectorAll('.show-cbx').forEach(cb=>cb.checked=!cb.checked);refresh();}
