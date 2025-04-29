@@ -198,13 +198,13 @@
       guessedRad.forEach(r=>remRad.delete(r));
       remLeaf.forEach(l=>{if(charSet.has(l))remLeaf.delete(l);});
 
-      const gussedArr=[...new Set(raw.split(''))];
-      guessedStroke.forEach(st=>{if(!gussedArr.includes(st))gussedArr.push(st);});
+      const guessedArr=[...new Set(raw.split(''))];
+      guessedStroke.forEach(st=>{if(!guessedArr.includes(st))guessedArr.push(st);});
 
       let out='';
       if(showRadical.checked) out+='剩余部首: '+[...remRad].join('')+'\n';
       if(showLeaf.checked) out+='剩余部件: '+[...remLeaf].join('')+'\n';
-      out+='gussed: '+gussedArr.join(',')+'\n';
+      out+='guessed: '+guessedArr.join(',')+'\n';
 
       let idx=0;
       listbox.querySelectorAll('.song-row').forEach(row=>{
