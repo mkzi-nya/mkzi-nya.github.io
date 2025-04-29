@@ -12,4 +12,4 @@
     milthm：[12.53](./mkzi/mil.png)(pc)，单指10.8(pc,已退)  
     arcaea：[12.2](./mkzi/arc.jpg)(已退)  
     当前最高成就：单手将ieo at fc  
-- some apps：[Home](./home.html)，[Milthm calc](https://mkzi-nya.github.io/milthm-calculator-web/)，[Notanote calc](https://mkzi-nya.github.io/notanote-calculator/)  
+- some apps：[Home](./home.html)，[Milthm calc](https://mkzi-nya.github.io/milthm-calculator-web/)，[Notanote calc](https://mkzi-nya.github.io/notanote-calculator/)，[guess](./guess/)  
