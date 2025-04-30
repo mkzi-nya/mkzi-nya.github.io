@@ -116,6 +116,7 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--input-bg);padding
 <div id="infoBar"></div>
 
 <script>
+const charPinyinExt = new Map();
 /* ========== 数据加载（与上一版一致，含 ü→v） ========== */
 const strokeMap=new Map(), variantMap=new Map();
 const decompJT=new Map(), decompFT=new Map(), charPinyin=new Map();
@@ -137,18 +138,44 @@ function loadChaizi(txt,map){
 }
 fetch('./chaizi-master/chaizi-jt.txt').then(r=>r.text()).then(t=>loadChaizi(t,decompJT));
 fetch('./chaizi-master/chaizi-ft.txt').then(r=>r.text()).then(t=>loadChaizi(t,decompFT));
-fetch('./cedict_ts.u8').then(r=>r.text()).then(txt=>{
-  const re=/^\S+\s+(\S)\s+\[([^\]]+)]/;
-  txt.trim().split(/\r?\n/).forEach(l=>{
-    if(l.startsWith('#'))return;
-    const m=l.match(re);if(m){
-      const ch=m[1];
-      let py=m[2].split(' ')[0].replace(/[1-5]/g,'').toLowerCase()
-        .replace(/u:/g,'v').replace(/ü/g,'v');
-      if(!charPinyin.has(ch))charPinyin.set(ch,py);
+function removeTone(pinyin) {
+  const map = {
+    'ā': 'a', 'á': 'a', 'ǎ': 'a', 'à': 'a',
+    'ē': 'e', 'é': 'e', 'ě': 'e', 'è': 'e',
+    'ī': 'i', 'í': 'i', 'ǐ': 'i', 'ì': 'i',
+    'ō': 'o', 'ó': 'o', 'ǒ': 'o', 'ò': 'o',
+    'ū': 'u', 'ú': 'u', 'ǔ': 'u', 'ù': 'u',
+    'ǖ': 'v', 'ǘ': 'v', 'ǚ': 'v', 'ǜ': 'v',
+    'ü': 'v', 'ń': 'n', 'ň': 'n'
+  };
+  return pinyin.replace(/[āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜüńň]/g, m => map[m] || m);
+}
+
+fetch('./pinyin.txt').then(r => r.text()).then(text => {
+  for (const line of text.split('\n')) {
+    if (line.startsWith('#')) continue;
+    const match = line.match(/^U\+([0-9A-F]{4,6}):\s*([\w,üǖǘǚǜǎěǐǒǔāēīōūńň]+).*#\s*(.)/iu);
+    if (match) {
+      const codePoint = parseInt(match[1], 16);
+      const char = String.fromCodePoint(codePoint);
+      const pyRaw = match[2].split(',')[0];
+      const py = removeTone(pyRaw.toLowerCase());
+      charPinyinExt.set(char, py);
     }
-  });refresh();
+  }
+  refresh(); // 确保加载后立即刷新界面
 });
+
+function getPinyin(ch) {
+  if (charPinyin.has(ch)) return charPinyin.get(ch);
+  if (charPinyinExt.has(ch)) {
+    const py = charPinyinExt.get(ch);
+    charPinyin.set(ch, py);
+    return py;
+  }
+  return '';
+}
+
 
 /* ========== 部件等价（同前） ========== */
 const compEquiv=new Map();
@@ -283,7 +310,7 @@ function refresh(){
       const canon=canonicalize(ch),isHan=hanRegex.test(ch),stroke=strokeMap.get(ch)||'';
       const chGuessed=canonSet.has(canon);
       if(mode==='han'&&isHan){
-        const comps=defaultComponents(ch),pyRaw=charPinyin.get(ch)||'';
+        const comps=defaultComponents(ch),pyRaw=getPinyin(ch)||'';
         let pyDisp='',hasPy=false;
         if(pinyinActive&&pyRaw){
           const {init,final}=splitInitialFinal(pyRaw);const initG=pySet.has(init),finalG=pySet.has(final);
