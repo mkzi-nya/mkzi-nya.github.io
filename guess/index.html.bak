@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>猜歌名工具（大小写不敏感版）</title>
+<title>猜歌名工具</title>
 <style>
 :root{--bg:#fff;--fg:#000;--card:#f7f7f7;--input-bg:#fff;--input-fg:#000;--accent:#3498db;}
 @media(prefers-color-scheme:dark){
@@ -120,8 +120,8 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--input-bg);padding
 <div id="infoBar"></div>
 
 <script>
-const charPinyinExt=new Map();
-/* ========== 数据加载 ========== */
+const charPinyinExt = new Map();
+/* ========== 数据加载（与上一版一致，含 ü→v） ========== */
 const strokeMap=new Map(), variantMap=new Map();
 const decompJT=new Map(), decompFT=new Map(), charPinyin=new Map();
 let decompLoaded=0;
@@ -142,45 +142,46 @@ function loadChaizi(txt,map){
 }
 fetch('./chaizi-master/chaizi-jt.txt').then(r=>r.text()).then(t=>loadChaizi(t,decompJT));
 fetch('./chaizi-master/chaizi-ft.txt').then(r=>r.text()).then(t=>loadChaizi(t,decompFT));
-function removeTone(pinyin){
-  const map={
-    'ā':'a','á':'a','ǎ':'a','à':'a',
-    'ē':'e','é':'e','ě':'e','è':'e',
-    'ī':'i','í':'i','ǐ':'i','ì':'i',
-    'ō':'o','ó':'o','ǒ':'o','ò':'o',
-    'ū':'u','ú':'u','ǔ':'u','ù':'u',
-    'ǖ':'v','ǘ':'v','ǚ':'v','ǜ':'v',
-    'ü':'v','ń':'n','ň':'n'
+function removeTone(pinyin) {
+  const map = {
+    'ā': 'a', 'á': 'a', 'ǎ': 'a', 'à': 'a',
+    'ē': 'e', 'é': 'e', 'ě': 'e', 'è': 'e',
+    'ī': 'i', 'í': 'i', 'ǐ': 'i', 'ì': 'i',
+    'ō': 'o', 'ó': 'o', 'ǒ': 'o', 'ò': 'o',
+    'ū': 'u', 'ú': 'u', 'ǔ': 'u', 'ù': 'u',
+    'ǖ': 'v', 'ǘ': 'v', 'ǚ': 'v', 'ǜ': 'v',
+    'ü': 'v', 'ń': 'n', 'ň': 'n'
   };
-  return pinyin.replace(/[āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜüńň]/g,m=>map[m]||m);
+  return pinyin.replace(/[āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜüńň]/g, m => map[m] || m);
 }
 
-fetch('./pinyin.txt').then(r=>r.text()).then(text=>{
-  for(const line of text.split('\n')){
-    if(line.startsWith('#'))continue;
-    const match=line.match(/^U\+([0-9A-F]{4,6}):\s*([\w,üǖǘǚǜǎěǐǒǔāēīōūńň]+).*#\s*(.)/iu);
-    if(match){
-      const codePoint=parseInt(match[1],16);
-      const char=String.fromCodePoint(codePoint);
-      const pyRaw=match[2].split(',')[0];
-      const py=removeTone(pyRaw.toLowerCase());
-      charPinyinExt.set(char,py);
+fetch('./pinyin.txt').then(r => r.text()).then(text => {
+  for (const line of text.split('\n')) {
+    if (line.startsWith('#')) continue;
+    const match = line.match(/^U\+([0-9A-F]{4,6}):\s*([\w,üǖǘǚǜǎěǐǒǔāēīōūńň]+).*#\s*(.)/iu);
+    if (match) {
+      const codePoint = parseInt(match[1], 16);
+      const char = String.fromCodePoint(codePoint);
+      const pyRaw = match[2].split(',')[0];
+      const py = removeTone(pyRaw.toLowerCase());
+      charPinyinExt.set(char, py);
     }
   }
-  refresh();
+  refresh(); // 确保加载后立即刷新界面
 });
 
-function getPinyin(ch){
-  if(charPinyin.has(ch))return charPinyin.get(ch);
-  if(charPinyinExt.has(ch)){
-    const py=charPinyinExt.get(ch);
-    charPinyin.set(ch,py);
+function getPinyin(ch) {
+  if (charPinyin.has(ch)) return charPinyin.get(ch);
+  if (charPinyinExt.has(ch)) {
+    const py = charPinyinExt.get(ch);
+    charPinyin.set(ch, py);
     return py;
   }
   return '';
 }
 
-/* ========== 部件等价 ========= */
+
+/* ========== 部件等价（同前） ========== */
 const compEquiv=new Map();
 function addEquiv(a,b){
   if(!compEquiv.has(a))compEquiv.set(a,new Set());
@@ -203,15 +204,10 @@ function buildGlobalEquiv(){
   proc(decompJT);proc(decompFT);
 }
 
-/* ========== 工具 ========= */
+/* ========== 工具 ========== */
 const hanRegex=/[\u4e00-\u9fff]/;
 const initList=['zh','ch','sh','b','p','m','f','d','t','n','l','g','k','h','j','q','x','r','z','c','s','y','w'];
 function canonicalize(c){return variantMap.get(c)||c;}
-// 新增: 对字母统一转为小写，实现大小写不敏感匹配
-function normalizeChar(c){
-  if(/[A-Za-z]/.test(c))return c.toLowerCase();
-  return canonicalize(c);
-}
 function strokeGuessed(st,numStrs){return numStrs.some(s=>s.includes(st));}
 function splitInitialFinal(py){
   let init='',final=py;
@@ -244,7 +240,7 @@ function defaultComponents(ch){
   return ret;
 }
 
-/* ========== DOM引用 ========= */
+/* ========== DOM引用 ========== */
 const listbox=document.getElementById('listbox'),guessbox=document.getElementById('guess'),output=document.getElementById('output');
 const sortOpt=document.getElementById('sort'),showComp=document.getElementById('showComp'),importBox=document.getElementById('importBox');
 const enablePinyin=document.getElementById('enablePinyin'),pinyinGuessBox=document.getElementById('pinyinGuess');
@@ -286,13 +282,13 @@ function refresh(){
   const mode=getMode();
   if(sortOpt.checked){
     if(mode==='han'){
-      guessbox.value=[...new Set([...guessbox.value].filter(c=>!/\d/.test(c)).map(ch=>/[A-Za-z]/.test(ch)?ch.toLowerCase():ch).sort())].join('')+
+      guessbox.value=[...new Set([...guessbox.value].filter(c=>!/\d/.test(c)).sort())].join('')+
                       guessbox.value.replace(/[^0-9]/g,'');
-    }else{guessbox.value=[...new Set([...guessbox.value].map(ch=>/[A-Za-z]/.test(ch)?ch.toLowerCase():ch).sort())].join('');}
+    }else{guessbox.value=[...new Set([...guessbox.value].sort())].join('');}
   }
 
-  const raw=[...guessbox.value].map(c=>/[A-Za-z]/.test(c)?c.toLowerCase():c);
-  const canonSet=new Set(raw.map(c=>normalizeChar(c)));
+  const raw=[...guessbox.value];
+  const canonSet=new Set(raw.map(c=>canonicalize(c)));
   const numStrs=Array.from(guessbox.value.match(/\d+/g)||[]);
   const pinyinActive=(mode==='han'&&enablePinyin.checked);
   const pySegs=pinyinActive?pinyinGuessBox.value.toLowerCase().split(',').map(s=>s.trim()).filter(Boolean):[];
@@ -301,8 +297,8 @@ function refresh(){
 
   const remainingComp=new Set(),guessedStroke=new Set();
   function compGuessed(c){
-    if(canonSet.has(normalizeChar(c)))return true;
-    const eq=compEquiv.get(c);if(eq)for(const a of eq)if(canonSet.has(normalizeChar(a)))return true;
+    if(canonSet.has(canonicalize(c)))return true;
+    const eq=compEquiv.get(c);if(eq)for(const a of eq)if(canonSet.has(canonicalize(a)))return true;
     return false;
   }
 
@@ -315,7 +311,7 @@ function refresh(){
     let line=no+' ';
     for(const ch of name){
       if(skipSet.has(ch)){line+=ch;continue;}
-      const canon=normalizeChar(ch),isHan=hanRegex.test(ch),stroke=strokeMap.get(ch)||'';
+      const canon=canonicalize(ch),isHan=hanRegex.test(ch),stroke=strokeMap.get(ch)||'';
       const chGuessed=canonSet.has(canon);
       if(mode==='han'&&isHan){
         const comps=defaultComponents(ch),pyRaw=getPinyin(ch)||'';
@@ -331,7 +327,8 @@ function refresh(){
             else pyDisp='**';
           }else{pyDisp=finalG?final:'*';}
         }
-        if(chGuessed){line+=ch;if(stroke)guessedStroke.add(stroke);}else{
+        if(chGuessed){line+=ch;if(stroke)guessedStroke.add(stroke);}
+        else{
           comps.forEach(cp=>{if(!compGuessed(cp))remainingComp.add(cp);});
           if(stroke&&strokeGuessed(stroke,numStrs))guessedStroke.add(stroke);
           const compShow=comps.map(cp=>(compGuessed(cp)||showInfo)?cp:'*').join('/');
@@ -350,7 +347,9 @@ function refresh(){
   const guessedArr=[...new Set(raw)];guessedStroke.forEach(st=>{if(!guessedArr.includes(st))guessedArr.push(st);});
   let header='guessed: '+guessedArr.join(',')+'\n';
   if(pinyinActive)header+='pinyin: '+pySegs.join(',')+'\n';
-  if(compOrder.length===0){compOrder=[...remainingComp];shuffle(compOrder);}else{remainingComp.forEach(c=>{if(!compOrder.includes(c))compOrder.push(c);});compOrder=compOrder.filter(c=>remainingComp.has(c));}
+  if(compOrder.length===0){compOrder=[...remainingComp];shuffle(compOrder);}
+  else{remainingComp.forEach(c=>{if(!compOrder.includes(c))compOrder.push(c);});
+       compOrder=compOrder.filter(c=>remainingComp.has(c));}
   if(mode==='han'&&showComp.checked)header+='剩余部件: '+compOrder.join('')+'\n';
 
   /* 格式说明 */
@@ -367,7 +366,7 @@ function refresh(){
   syncImportBox();updateRowNumbers();saveState();
 }
 
-/* ========== 歌曲行操作 ========= */
+/* ========== 歌曲行操作 ========== */
 function updateRowNumbers(){[...listbox.children].forEach((r,i)=>r.querySelector('.row-no').textContent=(i+1)+'.');}
 function add(name='',show=false,hide=false,fixedNo=null){
   songCounter++;const no=fixedNo||songCounter;
@@ -400,7 +399,7 @@ function syncImportBox(){
   importBox.value=lines.join('\n');
 }
 
-/* ========== 随机歌曲：读取 ./ck/xxx.txt ========= */
+/* ========== 随机歌曲：读取 ./ck/xxx.txt ========== */
 function filterTitle(title,limit){
   switch(limit){
     case'letters':return /^[A-Za-z\s]+$/.test(title);
