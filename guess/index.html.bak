@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>猜歌名工具</title>
+<style>
+:root{--bg:#fff;--fg:#000;--card:#f7f7f7;--input-bg:#fff;--input-fg:#000;--accent:#3498db;}
+@media(prefers-color-scheme:dark){
+  :root{--bg:#121212;--fg:#e0e0e0;--card:#1e1e1e;--input-bg:#2a2a2a;--input-fg:#e0e0e0;--accent:#5dade2;}
+}
+html.light{--bg:#fff!important;--fg:#000!important;--card:#f7f7f7!important;--input-bg:#fff!important;--input-fg:#000!important}
+html.dark {--bg:#121212!important;--fg:#e0e0e0!important;--card:#1e1e1e!important;--input-bg:#2a2a2a!important;--input-fg:#e0e0e0!important}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:Arial,Helvetica,sans-serif;line-height:1.5;overflow-x:hidden}
+h1{margin:16px 16px 8px;font-size:1.4rem}
+h2{margin:16px;font-size:1.1rem}
+button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:14px;cursor:pointer}
+button:hover{opacity:.9}
+select{padding:6px;border-radius:4px}
+.container{padding:0 16px 32px}
+.card{background:var(--card);padding:12px;border-radius:8px;margin:8px 0}
+input[type=text],textarea{background:var(--input-bg);color:var(--input-fg);border:1px solid #ccc;border-radius:4px;padding:6px;width:80%;max-width:400px;margin:4px 0}
+textarea{height:120px;resize:vertical}
+pre{white-space:pre-wrap;word-break:break-all;background:var(--input-bg);padding:8px;border-radius:6px;max-height:320px;overflow-y:auto}
+.song-row{display:flex;align-items:center;margin-bottom:6px}
+.song-row input[type=text]{flex:1;margin:0 6px}
+.song-row .idx{width:32px;text-align:right;margin-right:4px}
+@media(max-width:600px){input[type=text],textarea{width:90%}}
+.theme-toggle{position:fixed;top:10px;right:14px;font-size:20px;background:none;border:none;color:var(--fg)}
+#infoBar{margin:20px 0;padding:8px;text-align:center;font-size:12px;color:var(--fg)}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+
+<div class="container">
+  <h1>音游开字母工具</h1>
+
+  <!-- 歌曲列表 -->
+  <h2>歌曲列表</h2>
+  <div id="listbox" class="card"></div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
+    <button onclick="add()">＋ 添加歌曲</button>
+    <button onclick="sort_by_length()">按长度排序</button>
+    <button onclick="selectAll()">全选/反选</button>
+  </div>
+
+  <!-- 猜测输入 -->
+  <h2>猜测输入</h2>
+  <!-- 模式选择行 -->
+  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+    <label>模式:</label>
+    <label><input type="radio" name="mode" value="classic" onchange="switchMode()"> 传统</label>
+    <label><input type="radio" name="mode" value="han" checked onchange="switchMode()"> 汉字解析</label>
+    <label id="compLabel" style="display:inline-flex">
+      <input id="showComp" type="checkbox" onchange="refresh()"> 显示剩余部件
+    </label>
+    <label style="margin-left:8px"><input id="sort" type="checkbox" onchange="refresh()"> 自动排序</label>
+  </div>
+
+  <!-- guess 行 -->
+  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px">
+    <label>guess:</label>
+    <input id="guess" type="text" placeholder="输入字符">
+  </div>
+
+  <!-- 跳过字符行 -->
+  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px">
+    <label>跳过字符:</label>
+    <input id="skipChars" type="text" value=" " style="width:80px">
+  </div>
+
+  <!-- 拼音解析行 -->
+  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px">
+    <label id="pinyinEnableLabel" style="display:inline-flex">
+      <input id="enablePinyin" type="checkbox" onchange="togglePinyin()"> 拼音解析
+    </label>
+    <input id="pinyinGuess" type="text" placeholder="输入拼音,逗号分隔" style="display:none">
+  </div>
+
+  <!-- 输出 -->
+  <h2>输出结果 <button onclick="toClipboard()">复制</button></h2>
+  <div class="card"><pre id="output"></pre></div>
+
+  <!-- 批量导入 / 导出 -->
+  <h2>批量导入 / 导出</h2>
+  <div class="card" style="display:flex;flex-wrap:wrap;gap:16px">
+    <div style="flex:1 1 300px">
+      <textarea id="importBox" placeholder="1. 歌曲名……"></textarea><br>
+      <button onclick="import_from_text()">导入 (覆盖)</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <fieldset style="border:none;padding:0">
+        <legend style="font-weight:bold">歌曲范围</legend>
+        <label><input type="checkbox" class="range-cbx" value="milthm" checked> milthm</label>
+        <label><input type="checkbox" class="range-cbx" value="milthm1" checked> milthm曲/谱师</label>
+        <label><input type="checkbox" class="range-cbx" value="phigros" checked> phigros</label>
+        <label><input type="checkbox" class="range-cbx" value="arcaea" checked> arcaea</label>
+      </fieldset>
+      <label>限制
+        <select id="limitType">
+          <option value="none">无</option>
+          <option value="letters">只包含字母</option>
+          <option value="hanOnly">只包含汉字</option>
+          <option value="noHan">不包含汉字</option>
+          <option value="noSymbol">不包含符号</option>
+        </select>
+      </label>
+      <label>数量 <input id="randomCount" type="number" min="1" value="10" style="width:60px"></label>
+      <button onclick="addRandomSongs()">随机选择</button>
+    </div>
+  </div>
+</div>
+
+<div id="infoBar"></div>
+
+<script>
+/* ========== 1. 数据加载 ========== */
+const strokeMap=new Map(),variantMap=new Map();
+const decompJT=new Map(),decompFT=new Map();
+const charPinyin=new Map();
+let   decompLoaded=0;
+
+/* zi-dataset ─ 笔画 */
+fetch('./zi-dataset.tsv').then(r=>r.text()).then(t=>{
+  t.trim().split(/\r?\n/).slice(1).forEach(l=>{
+    const [c,s]=l.split('\t'); const st=(s.match(/\d+/)||[''])[0];
+    if(c&&st) strokeMap.set(c,st);
+  }); refresh();
+});
+
+/* 简繁索引 */
+fetch('./chaizi-master/fanjian_suoyin.txt').then(r=>r.text()).then(t=>{
+  t.trim().split(/\r?\n/).forEach(l=>{
+    const [v,c]=l.split('\t'); if(v&&c) variantMap.set(v,c);
+  }); refresh();
+});
+
+/* 拆字 */
+function loadChaizi(txt,map){
+  txt.trim().split(/\r?\n/).forEach(l=>{
+    const parts=l.split('\t'); const ch=parts.shift();
+    if(!ch) return;
+    map.set(ch,parts.map(p=>p.trim().split(/\s+/).filter(Boolean)));
+  });
+  decompLoaded++; if(decompLoaded===2) buildGlobalEquiv(); refresh();
+}
+fetch('./chaizi-master/chaizi-jt.txt').then(r=>r.text()).then(t=>loadChaizi(t,decompJT));
+fetch('./chaizi-master/chaizi-ft.txt').then(r=>r.text()).then(t=>loadChaizi(t,decompFT));
+
+/* CEDICT 单字拼音（去声调） */
+fetch('./cedict_ts.u8').then(r=>r.text()).then(t=>{
+  const re=/^\S+\s+(\S)\s+\[([^\]]+)]/;
+  t.trim().split(/\r?\n/).forEach(l=>{
+    if(l.startsWith('#')) return;
+    const m=l.match(re); if(m){
+      const ch=m[1], py=m[2].split(' ')[0].replace(/[1-5]/g,'').toLowerCase();
+      if(!charPinyin.has(ch)) charPinyin.set(ch,py);
+    }
+  }); refresh();
+});
+
+/* ========== 2. 部件等价 ========= */
+const compEquiv=new Map();
+function addEquiv(a,b){
+  if(!compEquiv.has(a)) compEquiv.set(a,new Set());
+  if(!compEquiv.has(b)) compEquiv.set(b,new Set());
+  compEquiv.get(a).add(b); compEquiv.get(b).add(a);
+}
+function buildGlobalEquiv(){
+  const proc=map=>{
+    for(const schemes of map.values()){
+      const len=schemes[0].length;
+      for(let i=1;i<schemes.length;i++){
+        if(schemes[i].length!==len) continue;
+        for(let k=0;k<len;k++){
+          const a=schemes[0][k],b=schemes[i][k];
+          if(a!==b) addEquiv(a,b);
+        }
+      }
+    }
+  }; proc(decompJT); proc(decompFT);
+}
+
+/* ========== 3. 工具 ========= */
+const hanRegex=/[\u4e00-\u9fff]/;
+function canonicalize(c){return variantMap.get(c)||c;}
+function strokeGuessed(st,nums){return nums.some(s=>s.includes(st));}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=~~(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}}
+const initialList=['zh','ch','sh','b','p','m','f','d','t','n','l','g','k','h','j','q','x','r','z','c','s','y','w'];
+function splitInitial(py){
+  for(const ini of initialList) if(py.startsWith(ini)) return [ini,py.slice(ini.length)];
+  return ['',py];
+}
+function getDecomps(ch){
+  if(decompJT.has(ch)) return decompJT.get(ch);
+  if(decompFT.has(ch)) return decompFT.get(ch);
+  const can=canonicalize(ch);
+  if(can!==ch){
+    if(decompJT.has(can)) return decompJT.get(can);
+    if(decompFT.has(can)) return decompFT.get(can);
+  }
+  return null;
+}
+const preferSet=new Set(['艹','氵','冫','月','灬','覀']);
+function defaultComponents(ch){
+  const ds=getDecomps(ch); if(!ds||!ds.length) return [];
+  const len=ds[0].length, res=[];
+  for(let i=0;i<len;i++){
+    const cands=[ds[0][i], ...ds.slice(1).filter(s=>s.length===len).map(s=>s[i])];
+    let best=cands.find(c=>preferSet.has(c))||cands[0];
+    let bestStroke=strokeMap.get(best)||99;
+    cands.forEach(c=>{
+      const st=strokeMap.get(c)||99;
+      if(st<bestStroke||(st===bestStroke&&c.charCodeAt(0)<best.charCodeAt(0))){best=c; bestStroke=st;}
+    });
+    res.push(best);
+  }
+  return res;
+}
+
+/* ========== 4. DOM ========= */
+const listbox=document.getElementById('listbox');
+const guessbox=document.getElementById('guess');
+const output=document.getElementById('output');
+const sortOpt=document.getElementById('sort');
+const showComp=document.getElementById('showComp');
+const enablePinyin=document.getElementById('enablePinyin');
+const pinyinGuessBox=document.getElementById('pinyinGuess');
+const importBox=document.getElementById('importBox');
+const skipBox=document.getElementById('skipChars');
+
+/* ========== 5. 剩余部件顺序缓存 ========= */
+const compOrder=[]; // 持久顺序
+
+function registerCompOrder(set){
+  set.forEach(cp=>{
+    if(!compOrder.includes(cp)){
+      const pos=Math.floor(Math.random()*(compOrder.length+1));
+      compOrder.splice(pos,0,cp);
+    }
+  });
+}
+
+/* ========== 6. 状态 ========= */
+function getMode(){return document.querySelector('input[name="mode"]:checked').value;}
+function switchMode(){document.getElementById('compLabel').style.display=(getMode()==='han')?'inline-flex':'none';refresh();}
+function togglePinyin(){pinyinGuessBox.style.display=enablePinyin.checked?'inline-block':'none';refresh();}
+function saveState(){
+  const st={
+    songs:[...listbox.querySelectorAll('.song-row')].map(r=>({
+      name:r.querySelector('.name').value,
+      show:r.querySelector('.show-cbx').checked,
+      hide:r.querySelector('.hide-cbx').checked
+    })),
+    guess:guessbox.value,
+    sort:sortOpt.checked,
+    showComp:showComp.checked,
+    mode:getMode(),
+    pinyinEnable:enablePinyin.checked,
+    pinyinGuess:pinyinGuessBox.value,
+    skipChars:skipBox.value
+  };
+  localStorage.guessSongState=JSON.stringify(st);
+}
+function loadState(){
+  const s=localStorage.guessSongState;if(!s){refresh();return;}
+  try{
+    const st=JSON.parse(s);
+    listbox.innerHTML='';
+    (st.songs||[]).forEach(o=>add(o.name,o.show,o.hide));
+    guessbox.value=st.guess||'';
+    sortOpt.checked=!!st.sort;
+    showComp.checked=!!st.showComp;
+    enablePinyin.checked=!!st.pinyinEnable;
+    pinyinGuessBox.value=st.pinyinGuess||'';
+    skipBox.value=st.skipChars||' ';
+    pinyinGuessBox.style.display=enablePinyin.checked?'inline-block':'none';
+    const m=document.querySelector(`input[name="mode"][value="${st.mode||'han'}"]`);
+    if(m) m.checked=true;
+  }catch{}
+  switchMode();
+}
+
+/* ========== 7. 刷新 ========= */
+function refresh(){
+  const mode=getMode();
+
+  /* guess 排序 */
+  if(sortOpt.checked){
+    if(mode==='han'){
+      guessbox.value=[...new Set([...guessbox.value].filter(c=>!/\d/.test(c)).sort())].join('')
+                  +guessbox.value.replace(/[^0-9]/g,'');
+    }else guessbox.value=[...new Set([...guessbox.value].sort())].join('');
+  }
+
+  const rawChars=[...guessbox.value];
+  const canonSet=new Set(rawChars.map(c=>canonicalize(c)));
+  const numStrs=Array.from(guessbox.value.match(/\d+/g)||[]);
+  const skipSet=new Set(skipBox.value.split(''));
+
+  /* 拼音相关 */
+  const pyEnable=enablePinyin.checked;
+  const pySegs=pyEnable?pinyinGuessBox.value.toLowerCase().split(',').map(s=>s.trim()).filter(Boolean):[];
+  const pySet=new Set(pySegs);
+
+  const remainingComp=new Set();
+  const guessedStroke=new Set();
+
+  function compGuessed(cp){
+    if(canonSet.has(canonicalize(cp))) return true;
+    const eq=compEquiv.get(cp); if(eq) for(const alt of eq) if(canonSet.has(canonicalize(alt))) return true;
+    return false;
+  }
+
+  let bodyText=''; /* rows */
+
+  /* 遍历行、更新序号标签 */
+  [...listbox.children].forEach((row,idx)=>{
+    row.querySelector('.idx').textContent=(idx+1)+'.';
+  });
+
+  [...listbox.children].forEach((row,idx)=>{
+    const rowNum=idx+1;
+    if(row.querySelector('.hide-cbx').checked) return;
+    const showInfo=row.querySelector('.show-cbx').checked;
+    const name=row.querySelector('.name').value;
+    if(!name) return;
+    let line=rowNum+'. ';
+
+    for(const ch of name){
+      if(skipSet.has(ch)){ line+=ch; continue; }
+
+      const chCanon=canonicalize(ch);
+      const chGuessed=canonSet.has(chCanon);
+      const stroke=strokeMap.get(ch)||'';
+      const isHan=hanRegex.test(ch);
+      const comps=isHan?defaultComponents(ch):[];
+
+      /*拼音显示*/
+      let pyDisp='';
+      if(pyEnable&&isHan&&charPinyin.has(ch)){
+        const py=charPinyin.get(ch);
+        const [ini,fin]=splitInitial(py);
+        const iniG=ini&&pySet.has(ini);
+        const finG=fin&&pySet.has(fin);
+        if(ini){
+          pyDisp+= iniG?ini:'*';
+        }else if(!iniG&&finG){
+          /* nothing */
+        }else if(!iniG&&!finG){
+          /* nothing */
+        }
+        if(fin){
+          pyDisp+= finG?fin:'*';
+        }
+        if(!ini && !finG) pyDisp='*';
+        if(!iniG && !finG && ini) pyDisp='**';
+      }
+
+      if(mode==='han'&&isHan){
+        if(chGuessed){
+          line+=ch;
+          if(stroke) guessedStroke.add(stroke);
+        }else{
+          comps.forEach(cp=>{if(!compGuessed(cp)) remainingComp.add(cp);} );
+          if(stroke&&strokeGuessed(stroke,numStrs)) guessedStroke.add(stroke);
+          const compShow=comps.map(cp=>(compGuessed(cp)||showInfo)?cp:'*').join('/');
+          if(pyEnable&&charPinyin.has(ch)){
+            const disp=showInfo?charPinyin.get(ch):(pyDisp||'**');
+            line+=(showInfo?ch:'*')+`(${disp},${ch},${compShow||'*'})`;
+          }else{
+            const stShow=(stroke&&(strokeGuessed(stroke,numStrs)||showInfo))?stroke:'*';
+            line+=(showInfo?ch:'*')+`(${stShow},${compShow})`;
+          }
+        }
+      }else{
+        line+=(chGuessed||showInfo)?ch:'*';
+      }
+    }
+    bodyText+=line+'\n';
+  });
+
+  /* 顶部信息 */
+  const guessedArr=[...new Set(rawChars)];
+  guessedStroke.forEach(st=>{if(!guessedArr.includes(st)) guessedArr.push(st);});
+  registerCompOrder(remainingComp);
+  const rem=compOrder.filter(c=>remainingComp.has(c));
+
+  let headerLines=[`guessed: ${guessedArr.join(',')}`];
+  if(pyEnable) headerLines.push(`pinyin: ${pySegs.join(',')}`);
+  if(getMode()==='han' && showComp.checked) headerLines.push(`剩余部件: ${rem.join('')}`);
+  bodyText=headerLines.join('\n')+'\n'+bodyText;
+
+  bodyText+= getMode()==='han'
+       ?'格式说明：*(拼音或笔画,字符,部件)；未猜内容用*，部件顺序固定'
+       :'格式说明：未开出的字符显示为 *';
+
+  output.textContent=bodyText;
+  syncImportBox(); saveState();
+}
+
+/* ========== 8. 歌曲行 ========= */
+function add(name='',show=false,hide=false){
+  const row=document.createElement('div'); row.className='song-row';
+  row.innerHTML=`
+    <span class="idx"></span>
+    <label><input type="checkbox" class="show-cbx"${show?' checked':''} onchange="syncShowHide(this)">Show</label>
+    <label><input type="checkbox" class="hide-cbx"${hide?' checked':''} onchange="syncShowHide(this)">Hide</label>
+    <input class="name" type="text" placeholder="歌曲名" value="${name}" oninput="refresh()">
+    <button onclick="this.parentNode.remove();refresh()">×</button>`;
+  listbox.appendChild(row); refresh();
+}
+function syncShowHide(cb){
+  const row=cb.closest('.song-row');
+  if(cb.classList.contains('show-cbx')&&cb.checked) row.querySelector('.hide-cbx').checked=false;
+  if(cb.classList.contains('hide-cbx')&&cb.checked) row.querySelector('.show-cbx').checked=false;
+  refresh();
+}
+function selectAll(){listbox.querySelectorAll('.show-cbx').forEach(cb=>cb.checked=!cb.checked);refresh();}
+function sort_by_length(){
+  [...listbox.children].sort((a,b)=>a.querySelector('.name').value.length-b.querySelector('.name').value.length)
+    .forEach(r=>listbox.appendChild(r)); refresh();
+}
+function import_from_text(){
+  listbox.innerHTML=''; importBox.value.split('\n').forEach(l=>{
+    const m=l.match(/^\s*\d+\.\s*(.+)$/); if(m) add(m[1].trim());
+  }); refresh();
+}
+function syncImportBox(){
+  const lines=[]; [...listbox.querySelectorAll('.name')].forEach((i,k)=>{
+    const v=i.value.trim(); if(v) lines.push(`${k+1}. ${v}`);
+  }); importBox.value=lines.join('\n');
+}
+
+/* ========== 9. 主题切换 ========= */
+function initTheme(){const s=localStorage.theme;if(s==='light'||s==='dark')document.documentElement.className=s;updateIcon();}
+function toggleTheme(){document.documentElement.className=document.documentElement.className==='dark'?'light':'dark';localStorage.theme=document.documentElement.className;updateIcon();}
+function updateIcon(){document.querySelector('.theme-toggle').textContent=document.documentElement.className==='dark'?'☀️':'🌙';}
+initTheme();
+
+/* ========== 10. 基础交互绑定 ========= */
+guessbox.oninput=refresh;
+pinyinGuessBox.oninput=refresh;
+skipBox.oninput=refresh;
+document.addEventListener('DOMContentLoaded',loadState);
+function toClipboard(){navigator.clipboard.writeText(output.textContent);}
+
+/* ========== 11. 随机歌曲 ===== */
+function filterTitle(t,limit){
+  switch(limit){
+    case 'letters': return /^[A-Za-z\s]+$/.test(t);
+    case 'hanOnly': return /^[\u4e00-\u9fff\s]+$/.test(t);
+    case 'noHan': return !/[\u4e00-\u9fff]/.test(t);
+    case 'noSymbol': return /^[A-Za-z0-9\u4e00-\u9fff\s]+$/.test(t);
+    default: return true; // 'none'
+  }
+}
+async function addRandomSongs(){
+  const limit=document.getElementById('limitType').value;
+  const count=parseInt(document.getElementById('randomCount').value)||10;
+  const ranges=[...document.querySelectorAll('.range-cbx:checked')].map(cb=>cb.value);
+  if(!ranges.length){alert('请至少选择一个歌曲范围');return;}
+  try{
+    let pool=[];
+    for(const range of ranges){
+      const txt=await fetch(`./${range}.txt`).then(r=>r.text());
+      pool.push(...txt.split(/\r?\n/).map(s=>s.trim()).filter(Boolean));
+    }
+    const available=pool.filter(t=>filterTitle(t,limit));
+    if(!available.length){alert('符合条件的歌曲为空');return;}
+    const chosen=new Set();
+    while(chosen.size<count && chosen.size<available.length){
+      const pick=available[Math.floor(Math.random()*available.length)];
+      if(![...listbox.querySelectorAll('.name')].some(i=>i.value.trim()===pick)) chosen.add(pick);
+    }
+    chosen.forEach(t=>add(t));
+  }catch(e){alert('读取歌曲文件失败');console.error(e);}
+}
+</script>
+</body>
+</html>
