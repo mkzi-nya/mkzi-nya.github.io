@@ -1,4 +1,3 @@
-guessed: a,e,o,i,t,y,p,d,n,c,r,s
-1. ULT!MATE END
-2. *****O**R**
-3. KiLLKiSS
+guessed: aei
+1. i*i***
+2. *i**e* *ai**** ** E*i*****
