@@ -107,8 +107,11 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--input-bg);padding
           <option value="none">无</option>
           <option value="letters">只包含字母</option>
           <option value="hanOnly">只包含汉字</option>
+          <option value="hasHan">包含汉字</option><!-- 新增 -->
           <option value="noHan">不包含汉字</option>
           <option value="noSymbol">不包含符号</option>
+          <option value="hasSymbol">包含符号</option>
+<option value="symbolOnly">只包含符号</option>
         </select>
       </label>
       <label>数量 <input id="randomCount" type="number" min="1" value="10" style="width:60px"></label>
@@ -403,13 +406,25 @@ function syncImportBox(){
 /* ========== 随机歌曲：读取 ./ck/xxx.txt ========= */
 function filterTitle(title,limit){
   switch(limit){
-    case'letters':return /^[A-Za-z\s]+$/.test(title);
-    case'hanOnly':return /^[\u4e00-\u9fff]+$/.test(title);
-    case'noHan':return !hanRegex.test(title);
-    case'noSymbol':return !/[^\u4e00-\u9fffA-Za-z\u3040-\u30ff0-9\s]/.test(title);
-    default:return true;
+    case 'letters':
+      return /^[A-Za-z\s]+$/.test(title);
+    case 'hanOnly':
+      return /^[\u4e00-\u9fff]+$/.test(title);
+    case 'hasHan':
+      return /[\u4e00-\u9fff]/.test(title);
+    case 'noHan':
+      return !/[\u4e00-\u9fff]/.test(title);
+    case 'noSymbol':
+      return !/[^\u4e00-\u9fffA-Za-z\u3040-\u30ff0-9\s]/.test(title);
+    case 'hasSymbol':
+      return /[^A-Za-z\u4e00-\u9fff\u3040-\u30ff0-9\s]/.test(title); // 包含符号
+    case 'symbolOnly':
+      return /^[^A-Za-z\u4e00-\u9fff\u3040-\u30ff0-9\s]+$/.test(title); // 只包含符号
+    default:
+      return true;
   }
 }
+
 async function addRandomSongs(){
   const limit=document.getElementById('limitType').value;
   const count=parseInt(document.getElementById('randomCount').value)||10;
@@ -421,13 +436,15 @@ async function addRandomSongs(){
       const txt=await fetch(`./ck/${r}.txt`).then(e=>e.text());
       pool.push(...txt.split(/\r?\n/).map(s=>s.trim()).filter(Boolean));
     }
+    pool=[...new Set(pool)]; // 去重，防止不同范围重复
     pool=pool.filter(Boolean);
     const available=pool.filter(t=>filterTitle(t,limit));
     if(!available.length){alert('符合条件的歌曲为空');return;}
     const current=new Set([...listbox.querySelectorAll('.name')].map(i=>i.value.trim()));
     const unused=available.filter(t=>!current.has(t));
     if(!unused.length){alert('列表中已包含所有符合条件歌曲');return;}
-    shuffle(unused);unused.slice(0,count).forEach(t=>add(t));
+    shuffle(unused);
+    unused.slice(0,Math.min(count,unused.length)).forEach(t=>add(t));
   }catch(e){alert('读取歌曲文件失败');console.error(e);}
 }
 
