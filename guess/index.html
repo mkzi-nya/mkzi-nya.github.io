@@ -114,6 +114,7 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--input-bg);padding
           <option value="hasHan">包含汉字</option><!-- 新增 -->
           <option value="noHan">不包含汉字</option>
           <option value="japaneseOnly">只包含日文</option>
+          <option value="japaneseHanOnly">只包含日文与汉字</option>
           <option value="noSymbol">不包含符号</option>
           <option value="hasSymbol">包含符号</option>
 <option value="symbolOnly">只包含符号</option>
@@ -427,6 +428,9 @@ function filterTitle(title,limit){
       return /^[^A-Za-z\u4e00-\u9fff\u3040-\u30ff0-9\s]+$/.test(title); // 只包含符号
     case 'japaneseOnly':
       return /^[\u3040-\u30ff\u31f0-\u31ff\uFF66-\uFF9F\u0020\u30fc]+$/.test(title);
+    case 'japaneseHanOnly':
+      return /^[\u3040-\u30ff\u31f0-\u31ff\uFF66-\uFF9F\u0020\u30fc\u4e00-\u9fff]+$/.test(title);
+
     default:
       return true;
   }
