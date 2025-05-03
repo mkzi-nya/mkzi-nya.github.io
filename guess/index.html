@@ -132,7 +132,7 @@ const charPinyinExt=new Map();
 const strokeMap=new Map(), variantMap=new Map();
 const decompJT=new Map(), decompFT=new Map(), charPinyin=new Map();
 let decompLoaded=0;
-fetch('./zi-dataset.tsv').then(r=>r.text()).then(t=>{
+fetch('./zi.tsv').then(r=>r.text()).then(t=>{
   t.trim().split(/\r?\n/).slice(1).forEach(l=>{
     const [c,s]=l.split('\t');const st=(s.match(/\d+/)||[''])[0];if(c&&st)strokeMap.set(c,st);
   });refresh();
