@@ -405,11 +405,29 @@ function sort_by_length(){
   [...listbox.children].sort((a,b)=>a.querySelector('.name').value.length-b.querySelector('.name').value.length)
     .forEach(r=>listbox.appendChild(r));updateRowNumbers();refresh();
 }
-function import_from_text(){
-  listbox.innerHTML='';songCounter=0;
-  importBox.value.split('\n').forEach(l=>{const m=l.match(/^\s*\d+\.\s*(.+)$/);if(m)add(m[1].trim());});
-  refresh();
+function import_from_text() {
+  listbox.innerHTML = '';  // 清空当前的歌曲列表
+  songCounter = 0;  // 重置歌曲计数器
+  
+  // 获取导入框中的文本并按行拆分
+  const inputText = importBox.value.trim();
+  const lines = inputText.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+
+  // 遍历每一行，并判断是否包含已标明的序号
+  lines.forEach((line, index) => {
+    // 使用正则表达式检查行是否有序号（如 "1. 歌曲名"）
+    const match = line.match(/^\s*\d+\.\s*(.+)$/);
+    if (match) {
+      // 如果有序号，则只提取歌曲名
+      add(match[1].trim(), false, false, parseInt(match[0].split('.')[0])); // 使用解析出来的序号
+    } else {
+      // 如果没有序号，则自动添加序号
+      add(line, false, false, index + 1); // 自动编号
+    }
+  });
+  refresh();  // 更新页面显示
 }
+
 function syncImportBox(){
   const lines=[];[...listbox.querySelectorAll('.name')].forEach((i,k)=>{const v=i.value.trim();if(v)lines.push(`${k+1}. ${v}`);});
   importBox.value=lines.join('\n');
