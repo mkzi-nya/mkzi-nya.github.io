@@ -1,11 +1,19 @@
-guessed: a,i,o,r,e,t,h,n,l,g,m,f,d,3,s
-1. *****
-2. *******
-4. [ns]
-6. +ﾟ.ＲＡＩＮ+ﾟ｡'
-8. Web 33,260.8
-12. **e*e ****ll
-14. ***
-16. *** Dentata
-18. fiиorza
-20. 3N*R*****N
+guessed: a,e,i,p,r
+1. ***err**a****
+2. **
+3. **e ***er*er
+4. *e* *e**e**i**
+5. Recollection
+6. Hall of Mirrors
+7. Subterranean Blastoff
+8. ******e*
+9. ********** *****
+10. Regain
+11. EulcRa
+12. *******ee* *rea*******
+13. ****
+14. **r
+15. Épine rouge
+16. RE*****
+17. We Could Get More Machinegun Psystyle! -And More Genre Switches-
+18. MIRЯOЯ
