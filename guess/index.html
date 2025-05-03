@@ -67,7 +67,11 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--input-bg);padding
   <!-- 行3：跳过字符 -->
   <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px">
     <label>不解析的字符:</label>
-    <input id="skipChars" type="text" value=" ">
+    <input id="skipChars" type="text" value=" " placeholder="将直接显示该字符">
+  </div>
+  <div style="margin-top:8px">
+  <label>提示语:</label>
+  <input id="hintText" type="text" placeholder="将出现在output的末尾" oninput="refresh()">
   </div>
 
   <!-- 行4：拼音解析，仅汉字模式可见 -->
@@ -372,7 +376,9 @@ function refresh(){
     explain='\n格式说明：未开出的汉字显示为 *(笔画数/部件)';
   }
 
-  output.textContent=header+outLines.filter(l=>l!==null).join('\n')+explain;
+  const hint = document.getElementById('hintText')?.value.trim();
+const hintText = hint ? `\n${hint}` : '';
+output.textContent = header + outLines.filter(l => l !== null).join('\n') + explain + hintText;
   syncImportBox();updateRowNumbers();saveState();
 }
 

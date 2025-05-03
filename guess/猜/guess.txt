@@ -1,19 +1,7 @@
-guessed: a,e,i,p,r
-1. ***err**a****
-2. **
-3. **e ***er*er
-4. *e* *e**e**i**
-5. Recollection
-6. Hall of Mirrors
-7. Subterranean Blastoff
-8. ******e*
-9. ********** *****
-10. Regain
-11. EulcRa
-12. *******ee* *rea*******
-13. ****
-14. **r
-15. Épine rouge
-16. RE*****
-17. We Could Get More Machinegun Psystyle! -And More Genre Switches-
-18. MIRЯOЯ
+guessed: ai
+1. Castorice
+2. ****
+3. *** **i*a**
+4. ****** *** **** *i*** ** *****i**
+5. ******* *i** A*a**** **** *** *i***
+6. ******** ******* *** ***a** i* *** *a** ** ******
