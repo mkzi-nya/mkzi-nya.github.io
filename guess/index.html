@@ -335,23 +335,23 @@ function refresh(){
         const comps=defaultComponents(ch),pyRaw=getPinyin(ch)||'';
         let pyDisp='',hasPy=false;
         if(pinyinActive&&pyRaw){
-          const {init,final}=splitInitialFinal(pyRaw);const initG=pySet.has(init),finalG=pySet.has(final);
-          hasPy=true;
-          if(showInfo){pyDisp=pyRaw;}
-          else if(init){
-            if(initG&&finalG)pyDisp=pyRaw;
-            else if(initG&&!finalG)pyDisp=init+'*';
-            else if(!initG&&finalG)pyDisp='*'+final;
-            else pyDisp='**';
-          }else{pyDisp=finalG?final:'*';}
-        }
+  const {init,final}=splitInitialFinal(pyRaw);const initG=pySet.has(init),finalG=pySet.has(final);
+  hasPy=true;
+  if(showInfo){pyDisp=pyRaw;}
+  else if(init){
+    if(initG&&finalG)pyDisp=pyRaw;
+    else if(initG&&!finalG)pyDisp=init+'-';
+    else if(!initG&&finalG)pyDisp='-'+final;
+    else pyDisp='--';
+  }else{pyDisp=finalG?final:'-';}
+}
         if(chGuessed){line+=ch;if(stroke)guessedStroke.add(stroke);}else{
           comps.forEach(cp=>{if(!compGuessed(cp))remainingComp.add(cp);});
           if(stroke&&strokeGuessed(stroke,numStrs))guessedStroke.add(stroke);
-          const compShow=comps.map(cp=>(compGuessed(cp)||showInfo)?cp:'*').join('/');
-          const stShow=(stroke&&(strokeGuessed(stroke,numStrs)||showInfo))?stroke:'*';
-          if(hasPy)line+=(showInfo?ch:'*')+`(${pyDisp||'*'},${stShow},${compShow||'*'})`;
-          else     line+=(showInfo?ch:'*')+`(${stShow},${compShow})`;
+          const compShow = comps.map(cp => (compGuessed(cp) || showInfo) ? cp : '-').join('/');
+const stShow = (stroke && (strokeGuessed(stroke, numStrs) || showInfo)) ? stroke : '-';
+if (hasPy) line += (showInfo ? ch : '*') + `(${pyDisp || '-'},${stShow},${compShow || '-'})`;
+else       line += (showInfo ? ch : '*') + `(${stShow},${compShow})`;
         }
       }else{
         line+=(chGuessed||showInfo)?ch:'*';
@@ -372,7 +372,7 @@ function refresh(){
   if(mode==='classic'){
     explain='';
   }else if(pinyinActive){
-    explain='\n格式说明：未开出的汉字显示为 *(拼音/笔画数/部件)\n拼音格式：声+韵，如双sh*/*uang';
+    explain='\n格式说明：未开出的汉字显示为 *(拼音/笔画数/部件)\n拼音格式：声+韵，如双sh-/-uang';
   }else{
     explain='\n格式说明：未开出的汉字显示为 *(笔画数/部件)';
   }
