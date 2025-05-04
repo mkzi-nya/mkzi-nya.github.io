@@ -343,14 +343,15 @@ function refresh(){
     else if(initG&&!finalG)pyDisp=init+'-';
     else if(!initG&&finalG)pyDisp='-'+final;
     else pyDisp='--';
-  }else{pyDisp=finalG?final:'-';}
+  }else{pyDisp=finalG?final:'--';}
 }
+
         if(chGuessed){line+=ch;if(stroke)guessedStroke.add(stroke);}else{
           comps.forEach(cp=>{if(!compGuessed(cp))remainingComp.add(cp);});
           if(stroke&&strokeGuessed(stroke,numStrs))guessedStroke.add(stroke);
           const compShow = comps.map(cp => (compGuessed(cp) || showInfo) ? cp : '-').join('/');
 const stShow = (stroke && (strokeGuessed(stroke, numStrs) || showInfo)) ? stroke : '-';
-if (hasPy) line += (showInfo ? ch : '*') + `(${pyDisp || '-'},${stShow},${compShow || '-'})`;
+if (hasPy) line += (showInfo ? ch : '*') + `(${pyDisp || '-'},${stShow},${compShow})`;
 else       line += (showInfo ? ch : '*') + `(${stShow},${compShow})`;
 
         }
