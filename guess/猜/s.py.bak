@@ -5,44 +5,37 @@ def extract_patterns(filepath):
     patterns = []
     with open(filepath, 'r', encoding='utf-8') as f:
         for line in f:
+            # 匹配形如 1. ***abc 的行
             match = re.match(r'^\d+\.\s+(.*)', line.strip())
             if match:
                 pattern = match.group(1)
                 patterns.append(pattern)
     return patterns
 
-def get_guessed_chars(patterns):
-    guessed = set()
-    for pattern in patterns:
-        for ch in pattern:
-            if ch != '*':
-                guessed.add(ch.lower())
-    guessed.add(' ')  # 将空格也纳入 guessed
-    return guessed
-
-def match_word(word, pattern, guessed):
+def match_word(word, pattern):
     if len(word) != len(pattern):
         return False
     for wc, pc in zip(word, pattern):
         if pc == '*':
-            if wc.lower() in guessed:
-                return False
-        else:
-            if wc.lower() != pc.lower():
-                return False
+            continue
+        if wc.lower() != pc.lower():
+            return False
     return True
 
-def match_line(line, pattern, guessed):
-    return match_word(line.strip(), pattern.strip(), guessed)
+def match_line(line, pattern):
+    # pattern 可能含空格，匹配整行
+    line = line.strip()
+    pattern = pattern.strip()
+    return match_word(line, pattern)
 
-def search_matches(patterns, guessed, limit=20):
+def search_matches(patterns, limit=20):
     results = []
     for pattern in patterns:
         found = []
         for filename in glob.glob("*.txt"):
             with open(filename, 'r', encoding='utf-8') as f:
                 for line in f:
-                    if match_line(line, pattern, guessed):
+                    if match_line(line, pattern):
                         found.append(line.strip())
                         if len(found) >= limit:
                             break
@@ -53,8 +46,7 @@ def search_matches(patterns, guessed, limit=20):
 
 def main():
     patterns = extract_patterns('./guess.txt')
-    guessed = get_guessed_chars(patterns)
-    results = search_matches(patterns, guessed)
+    results = search_matches(patterns)
 
     with open('out.txt', 'w', encoding='utf-8') as out:
         for i, (pattern, matches) in enumerate(results, 1):
