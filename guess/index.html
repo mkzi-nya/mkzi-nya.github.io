@@ -352,6 +352,7 @@ function refresh(){
 const stShow = (stroke && (strokeGuessed(stroke, numStrs) || showInfo)) ? stroke : '-';
 if (hasPy) line += (showInfo ? ch : '*') + `(${pyDisp || '-'},${stShow},${compShow || '-'})`;
 else       line += (showInfo ? ch : '*') + `(${stShow},${compShow})`;
+
         }
       }else{
         line+=(chGuessed||showInfo)?ch:'*';
