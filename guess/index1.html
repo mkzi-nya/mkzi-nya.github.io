@@ -207,7 +207,8 @@
     refresh();
   }
 
-  function saveState(){ saveStateFor(currentMode); }
+  function saveState(){ saveStateFor(currentMode); localStorage.setItem('guessMode', currentMode);
+}
 
   function switchMode(){
     saveStateFor(currentMode);
@@ -424,54 +425,71 @@
   function updateRowNumbers(){ [...listbox.children].forEach((r,i)=>r.querySelector('.row-no').textContent=(i+1)+'.'); }
 
   /* —— 核心解析 ========== */
-  function parseLineHan(name,canonSet,numStrs,skipSet,pinyinActive,pySet,showInfo){
-    const remainingComp=new Set(), guessedStroke=new Set();
-    function compGuessed(c){
-      if(canonSet.has(normalizeChar(c))) return true;
-      const eq=compEquiv.get(c);
-      if(eq) for(const a of eq) if(canonSet.has(normalizeChar(a))) return true;
-      return false;
+function parseLineHan(name, canonSet, numStrs, skipSet, pinyinActive, pySet, showInfo){
+  const remainingComp = new Set(), guessedStroke = new Set();
+  let line = '', insideLiteral = false;
+
+  for (let i = 0; i < name.length; i++) {
+    const ch = name[i];
+
+    // 检测 [明文答案] 区域，不参与解析
+    if (ch === '[') {
+      insideLiteral = true;
+      line += ch;
+      continue;
     }
-    let line='';
-    for(const ch of name){
-      if(skipSet.has(ch)){ line+=ch; continue; }
-      const canon=normalizeChar(ch),
-            isHan=hanRegex.test(ch),
-            stroke=strokeMap.get(ch)||'',
-            chGuessed=canonSet.has(canon);
-      if(isHan){
-        const comps=defaultComponents(ch),
-              pyRaw=getPinyin(ch)||'';
-        let pyDisp='', hasPy=false;
-        if(pinyinActive&&pyRaw){
-          const {init,final}=splitInitialFinal(pyRaw),
-                iG=pySet.has(init), fG=pySet.has(final);
-          hasPy=true;
-          if(showInfo) pyDisp=pyRaw;
-          else if(init){
-            if(iG&&fG) pyDisp=pyRaw;
-            else if(iG) pyDisp=init+'-';
-            else if(fG) pyDisp='-'+final;
-            else pyDisp='--';
-          } else pyDisp=fG?final:'--';
-        }
-        if(chGuessed){
-          line+=ch;
-          if(stroke) guessedStroke.add(stroke);
-        } else {
-          comps.forEach(c=>!compGuessed(c)&&remainingComp.add(c));
-          if(stroke&&strokeGuessed(stroke,numStrs)) guessedStroke.add(stroke);
-          const compShow=comps.map(c=>compGuessed(c)||showInfo?c:'-').join('/'),
-                stShow=stroke&&(strokeGuessed(stroke,numStrs)||showInfo)?stroke:'-';
-          if(hasPy) line += (showInfo?ch:'*')+`(${pyDisp||'-'},${stShow},${compShow})`;
-          else     line += (showInfo?ch:'*')+`(${stShow},${compShow})`;
-        }
-      } else {
-        line += (chGuessed||showInfo)?ch:'*';
+    if (ch === ']') {
+      insideLiteral = false;
+      line += ch;
+      continue;
+    }
+    if (insideLiteral) {
+      line += ch;
+      continue;
+    }
+
+    const canon = normalizeChar(ch),
+          isHan = hanRegex.test(ch),
+          stroke = strokeMap.get(ch) || '',
+          chGuessed = canonSet.has(canon);
+
+    if (skipSet.has(ch)) { line += ch; continue; }
+
+    if (isHan){
+      const comps = defaultComponents(ch),
+            pyRaw = getPinyin(ch) || '';
+      let pyDisp = '', hasPy = false;
+      if (pinyinActive && pyRaw){
+        const {init,final} = splitInitialFinal(pyRaw),
+              iG = pySet.has(init), fG = pySet.has(final);
+        hasPy = true;
+        if (showInfo) pyDisp = pyRaw;
+        else if (init){
+          if (iG && fG) pyDisp = pyRaw;
+          else if (iG) pyDisp = init + '-';
+          else if (fG) pyDisp = '-' + final;
+          else pyDisp = '--';
+        } else pyDisp = fG ? final : '--';
       }
+      if (chGuessed){
+        line += ch;
+        if (stroke) guessedStroke.add(stroke);
+      } else {
+        comps.forEach(c => !canonSet.has(normalizeChar(c)) && remainingComp.add(c));
+        if (stroke && strokeGuessed(stroke, numStrs)) guessedStroke.add(stroke);
+        const compShow = comps.map(c => canonSet.has(normalizeChar(c)) || showInfo ? c : '-').join('/'),
+              stShow = stroke && (strokeGuessed(stroke, numStrs) || showInfo) ? stroke : '-';
+        if (hasPy) line += (showInfo ? ch : '*') + `(${pyDisp || '-'},${stShow},${compShow})`;
+        else       line += (showInfo ? ch : '*') + `(${stShow},${compShow})`;
+      }
+    } else {
+      line += (chGuessed || showInfo) ? ch : '*';
     }
-    return {line,remainingComp,guessedStroke};
   }
+
+  return { line, remainingComp, guessedStroke };
+}
+
 
   /* —— 刷新：非诗模式 —— */
   function refreshNonPoetry(){
@@ -550,42 +568,67 @@
             showQ=row.querySelector('.show-cbx').checked,
             type=row.dataset.type||'normal',
             contentRaw=row.querySelector('.name').value;
-      if(!contentRaw||hide) return;
+      if(!contentRaw || hide) return;
 
-      if(type!=='comprehension'){
-        const p=parseLineHan(contentRaw,canonSet,numStrs,skipSet,pinyinActive,pySet,showQ);
-        p.remainingComp.forEach(c=>remainingComp.add(c));
-        p.guessedStroke.forEach(s=>guessedStroke.add(s));
-        outLines.push(`${idx}. ${p.line}`);
+if (showQ) {
+  // 显示原题，但不带答案
+  const display = type === 'comprehension'
+    ? contentRaw.replace(/\$\d+/g, '[]')
+    : contentRaw;
+  outLines.push(`${idx}. ${display}`);
+  return;
+}
+
+if (type !== 'comprehension') {
+  // normal 类型照旧
+  const p = parseLineHan(contentRaw, canonSet, numStrs, skipSet, pinyinActive, pySet, showQ);
+  p.remainingComp.forEach(c => remainingComp.add(c));
+  p.guessedStroke.forEach(s => guessedStroke.add(s));
+  outLines.push(`${idx}. ${p.line}`);
+} else {
+  needAnswer = true;
+  const ansArr = JSON.parse(row.dataset.answers || '[]');
+  const checkedMap = ansSelectionMap[idx] || {};
+  const allChecked = ansArr.every((_, i) => checkedMap[i]);
+
+  let finalText = '';
+
+  if (allChecked) {
+    // 所有答案勾选，构造 [答案] 明文替换，无解析
+    finalText = contentRaw.replace(/\$([0-9]+)/g, (_, n) => {
+      const ans = ansArr[n];
+      return '[' + (Array.isArray(ans) ? ans.join('/') : ans) + ']';
+    });
+    outLines.push(`${idx}. ${finalText}`);
+  } else {
+    // 部分/无勾选，替换勾选答案为 [答案]，未选为 []
+    const replaced = contentRaw.replace(/\$([0-9]+)/g, (_, n) => {
+      const i = parseInt(n);
+      if (checkedMap[i]) {
+        const ans = ansArr[i];
+        return '[' + (Array.isArray(ans) ? ans.join('/') : ans) + ']';
       } else {
-        needAnswer=true;
-        const ansArr=JSON.parse(row.dataset.answers||'[]');
-        let content=contentRaw;
-        ansArr.forEach((ans,ai)=>{
-          content=content.replace(new RegExp('\\$'+ai,'g'),'[]');
-        });
-        const p=parseLineHan(content,canonSet,numStrs,skipSet,pinyinActive,pySet,showQ);
-        p.remainingComp.forEach(c=>remainingComp.add(c));
-        p.guessedStroke.forEach(s=>guessedStroke.add(s));
-
-        let ansLine=`${idx}. `;
-        ansArr.forEach((ans,ai)=>{
-          const disp=Array.isArray(ans)?ans.join('/') : ans;
-          const checked=!!ansSelectionMap[idx]?.[ai];
-          ansLine+=`<label><input type="checkbox" class="ans-cbx" data-row="${idx}" data-idx="${ai}" ${checked?'checked':''}>${disp}</label>`;
-          if(ai<ansArr.length-1) ansLine+='，';
-          if(checked){
-            p.line = replaceNth(p.line,'[]',disp,ai+1);
-          }
-        });
-        if(ansArr.every((_,ai)=>ansSelectionMap[idx]?.[ai])){
-          p.line = contentRaw.replace(/\$([0-9]+)/g,(_,n)=>
-            Array.isArray(ansArr[n])?ansArr[n].join('/') : ansArr[n]
-          );
-        }
-        outLines.push(`${idx}. ${p.line}`);
-        answerHTML.push(ansLine);
+        return '[]';
       }
+    });
+    const p = parseLineHan(replaced, canonSet, numStrs, skipSet, pinyinActive, pySet, showQ);
+    p.remainingComp.forEach(c => remainingComp.add(c));
+    p.guessedStroke.forEach(s => guessedStroke.add(s));
+    finalText = p.line;
+    outLines.push(`${idx}. ${finalText}`);
+  }
+
+  // 构建答案勾选区
+  let ansLine = `${idx}. `;
+  ansArr.forEach((ans, ai) => {
+    const disp = Array.isArray(ans) ? ans.join('/') : ans;
+    const checked = !!checkedMap[ai];
+    ansLine += `<label><input type="checkbox" class="ans-cbx" data-row="${idx}" data-idx="${ai}" ${checked ? 'checked' : ''}>${disp}</label>`;
+    if (ai < ansArr.length - 1) ansLine += '，';
+  });
+  answerHTML.push(ansLine);
+}
+
     });
 
     const guessedArr=[...new Set(raw)];
@@ -634,23 +677,38 @@
   }
 
   /* —— 行操作 —— */
-  function add(name='', show=false, hide=false, fixedNo=null, type='normal', answers=null){
-    songCounter++;
-    const no=fixedNo||songCounter;
-    const row=document.createElement('div');
-    row.className='song-row';
-    row.dataset.no=no;
-    row.dataset.type=type;
-    if(answers) row.dataset.answers=JSON.stringify(answers);
-    row.innerHTML=`
-      <span class="row-no">${no}.</span>
-      <label><input type="checkbox" class="show-cbx"${show?' checked':''} onchange="syncShowHide(this)">Show</label>
-      <label><input type="checkbox" class="hide-cbx"${hide?' checked':''} onchange="syncShowHide(this)">Hide</label>
-      <input class="name" type="text" placeholder="${getMode()==='poetry'?'题干':'歌曲名'}" value="${name}" oninput="refresh()">
-      <button onclick="this.parentNode.remove();refresh()">×</button>
-    `;
-    listbox.appendChild(row);
-  }
+
+function add(name = '', show = false, hide = false, fixedNo = null, type = 'normal', answers = null) {
+  songCounter++;
+  const no = fixedNo || songCounter;
+
+  const row = document.createElement('div');
+  row.className = 'song-row';
+  row.dataset.no = no;
+  row.dataset.type = type;
+  if (answers) row.dataset.answers = JSON.stringify(answers);
+
+  // 结构手动构建而非拼接 HTML 字符串
+  row.innerHTML = `
+    <span class="row-no">${no}.</span>
+    <label><input type="checkbox" class="show-cbx"${show ? ' checked' : ''}>Show</label>
+    <label><input type="checkbox" class="hide-cbx"${hide ? ' checked' : ''}>Hide</label>
+    <button>×</button>
+  `;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'name';
+  input.placeholder = getMode() === 'poetry' ? '题干' : '歌曲名';
+  input.value = name; // ← 用 .value 安全赋值，不用转义
+  input.oninput = refresh;
+
+  const btn = row.querySelector('button');
+  btn.onclick = () => { row.remove(); refresh(); };
+
+  row.insertBefore(input, btn);
+  listbox.appendChild(row);
+}
 
   function syncShowHide(cb){
     const r=cb.closest('.song-row');
@@ -679,38 +737,51 @@
     refresh();
   }
 
-  function import_from_text(){
-    listbox.innerHTML=''; songCounter=0;
-    importBox.value.trim().split(/\r?\n/).map(l=>l.trim()).filter(Boolean).forEach((line,idx)=>{
-      const m=line.match(/^\s*(\d+)\.\s*comprehension[s]?\s*,\s*(.+)$/i);
-      if(m){
-        const no=parseInt(m[1]), rest=m[2],
-              ans=[...rest.matchAll(/\[(.+?)\]/g)].map(x=>x[1]),
-              content=rest.replace(/\[(.+?)\]/g, _=>'$'+ans.findIndex(a=>a===_.slice(1,-1)));
-        add(content,false,false,no,'comprehension',ans);
-        return;
-      }
-      const n=line.match(/^\s*(\d+)\.\s*(.+)$/);
-      if(n) add(n[2].trim(),false,false,parseInt(n[1]));
-      else  add(line,false,false,idx+1);
-    });
-    refresh();
-  }
+function import_from_text(){
+  listbox.innerHTML = '';
+  songCounter = 0;
+  importBox.value.trim().split(/\r?\n/).map(l => l.trim()).filter(Boolean).forEach((line, idx) => {
+    const n = line.match(/^\s*(\d+)\.\s*(.+)$/);
+    if (!n) return;
+    const no = parseInt(n[1]);
+    let content = n[2];
 
-  function syncImportBox(){
-    const lines=[...listbox.querySelectorAll('.song-row')].map((r,k)=>{
-      const v=r.querySelector('.name').value.trim();
-      if(!v) return '';
-      if(r.dataset.type==='comprehension'){
-        const ans=JSON.parse(r.dataset.answers), arr=[];
-        let exp=v;
-        ans.forEach((a,i)=> exp=exp.replace(new RegExp('\\$'+i,'g'),'['+(Array.isArray(a)?a.join('/') : a)+']'));
-        return `${k+1}. comprehension,${exp}`;
-      }
-      return `${k+1}. ${v}`;
-    }).filter(Boolean);
-    importBox.value=lines.join('\n');
-  }
+    // 自动识别是否包含填空
+    const matches = [...content.matchAll(/\[(.+?)\]/g)];
+    if (matches.length > 0) {
+      const ans = matches.map(x => x[1]);
+      content = content.replace(/\[(.+?)\]/g, (_, m) => {
+        const index = ans.findIndex(a => a === m);
+        return `$${index}`;
+      });
+      add(content, false, false, no, 'comprehension', ans);
+    } else {
+      add(content, false, false, no);
+    }
+  });
+  refresh();
+}
+
+
+function syncImportBox() {
+  const lines = [...listbox.querySelectorAll('.song-row')].map((r, k) => {
+    const raw = r.querySelector('.name').value;
+    if (!raw) return '';
+    if (r.dataset.type === 'comprehension') {
+      const ans = JSON.parse(r.dataset.answers || '[]');
+      let exp = raw;
+      ans.forEach((a, i) => {
+        const disp = Array.isArray(a) ? a.join('/') : a;
+        exp = exp.replace(new RegExp('\\$' + i, 'g'), `[${disp}]`);
+      });
+      return `${k + 1}. ${exp}`;
+    }
+    return `${k + 1}. ${raw}`;
+  }).filter(Boolean);
+
+  importBox.value = lines.join('\n');
+}
+
 
   function addRandomSelection(){
     getMode()==='poetry'?addRandomPoetry():addRandomSongs();
@@ -751,22 +822,41 @@
       shuffle(unused);
       unused.slice(0,Math.min(count,unused.length)).forEach(t=>add(t));
     }catch(e){ alert('读取歌曲文件失败'); console.error(e); }
+    syncImportBox();
+
   }
 
-  function addRandomPoetry(){
-    const range=document.querySelector('input[name="poetryRange"]:checked').value,
-          cnt=parseInt(document.getElementById('randomCountPoetry').value)||10;
-    let pool=[];
-    if(range==='comprehension') pool=[...poetryComprehension];
-    else if(range==='regular') pool=poetryRegular.map(p=>({content:p.content}));
-    else pool=[...poetryRegular.map(p=>({content:p.content})),...poetryComprehension];
-    if(!pool.length){ alert('题库为空'); return; }
-    shuffle(pool);
-    pool.slice(0,Math.min(cnt,pool.length)).forEach(q=>{
-      if(q.answer) add(q.content,false,false,null,'comprehension',q.answer);
-      else         add(q.content,false,false,null,'normal');
-    });
-  }
+function addRandomPoetry(){
+  const range = document.querySelector('input[name="poetryRange"]:checked').value,
+        cnt = parseInt(document.getElementById('randomCountPoetry').value) || 10;
+  let pool = [];
+
+  if (range === 'comprehension') pool = [...poetryComprehension];
+  else if (range === 'regular') pool = poetryRegular.map(p => ({ content: p.content }));
+  else pool = [...poetryRegular.map(p => ({ content: p.content })), ...poetryComprehension];
+
+  if (!pool.length){ alert('题库为空'); return; }
+  shuffle(pool);
+
+  pool.slice(0, Math.min(cnt, pool.length)).forEach(q => {
+    const content = q.content;
+    const answers = q.answer;
+
+    if (typeof content !== 'string') {
+      console.warn('跳过非字符串内容：', q);
+      return;
+    }
+
+    // 不要使用 .trim()，避免破坏转义符
+    if (answers && /\$\d+/.test(content)) {
+      add(content, false, false, null, 'comprehension', answers);
+    } else {
+      add(content, false, false, null, 'normal');
+    }
+  });
+
+  syncImportBox();
+}
 
   /* —— 主题 & 复制 —— */
   function initTheme(){
@@ -784,12 +874,18 @@
   }
   function toClipboard(){ navigator.clipboard.writeText(output.textContent); }
 
-  /* —— 启动 —— */
+// —— 启动 ——
+document.addEventListener('DOMContentLoaded', () => {
   initTheme();
-  guessbox.oninput=refresh;
-  pinyinGuessBox.oninput=refresh;
-  skipCharsBox.oninput=refresh;
-  document.addEventListener('DOMContentLoaded',()=>{ switchMode(); });
+  guessbox.oninput = refresh;
+  pinyinGuessBox.oninput = refresh;
+  skipCharsBox.oninput = refresh;
+
+  currentMode = localStorage.getItem('guessMode') || 'han';
+  document.querySelector(`input[name="mode"][value="${currentMode}"]`).checked = true;
+  switchMode();
+});
+
   </script>
 </body>
 </html>
