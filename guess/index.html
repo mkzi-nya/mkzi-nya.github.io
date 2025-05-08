@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>音游开字母工具</title>
+<title>开字母工具</title>
 <style>
 :root{--bg:#fff;--fg:#000;--card:#f7f7f7;--input-bg:#fff;--input-fg:#000;--accent:#3498db;}
 @media(prefers-color-scheme:dark){
@@ -42,7 +42,7 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--input-bg);padding
 <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
 
 <div class="container">
-  <h1>音游开字母工具</h1>
+  <h1>开字母工具</h1>
 <!-- 标签页按钮栏 -->
 <div id="tabBar" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px"></div>
 
@@ -52,7 +52,7 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--input-bg);padding
   <button onclick="deleteCurrentTab()">删除当前标签页</button>
 </div>
 
-<h2>歌曲列表</h2>
+<h2>题目列表</h2>
 <div id="songListWrapper">
   <div id="listbox" class="card"></div>
   <div style="display:flex;flex-wrap:wrap;gap:8px">
@@ -113,7 +113,7 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--input-bg);padding
   <h2>批量导入 / 导出</h2>
   <div class="card" style="display:flex;flex-wrap:wrap;gap:16px">
     <div style="flex:1 1 300px">
-      <textarea id="importBox" placeholder="1. 歌曲名……"></textarea><br>
+      <textarea id="importBox" placeholder="题目……"></textarea><br>
       <button onclick="import_from_text()">导入 (覆盖)</button>
     </div>
 <button onclick="openRandomDialog()">随机选择</button>
@@ -310,6 +310,8 @@ const rangeList = [
   ['Paradigm : Reboot', 'Paradigm'],
   ['milthm曲/谱师', 'milthm1'],
   ['awa…?', 'awa']
+  ['古诗', 'poems']
+  ['古诗填空', 'comprehensions']
 ];
 
 function openRandomDialog() {
