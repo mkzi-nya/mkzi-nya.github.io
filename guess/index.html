@@ -125,7 +125,7 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--input-bg);padding
 <!-- 弹出层 -->
 <div id="randomDialog" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
   width:90%;max-width:500px;background:var(--card);padding:16px;border-radius:12px;box-shadow:0 0 20px rgba(0,0,0,0.3);z-index:999;overflow-y:auto;max-height:80vh">
-  <h3 style="margin-top:0">随机选择歌曲</h3>
+  <h3 style="margin-top:0">随机选择</h3>
   <div id="rangeContainer" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px">
     <!-- 动态生成内容 -->
   </div>
@@ -310,8 +310,8 @@ const rangeList = [
   ['Paradigm : Reboot', 'Paradigm'],
   ['milthm曲/谱师', 'milthm1'],
   ['awa…?', 'awa'],
-  ['古诗', 'poems'],
-  ['古诗填空', 'comprehensions']
+  ['古诗文', 'poems'],
+  ['古诗文填空', 'comprehensions']
 ];
 
 function openRandomDialog() {
@@ -800,16 +800,54 @@ function refresh() {
 
 /* ========== 歌曲行操作 ========= */
 function updateRowNumbers(){[...listbox.children].forEach((r,i)=>r.querySelector('.row-no').textContent=(i+1)+'.');}
-function add(name='',show=false,hide=false,fixedNo=null){
-  songCounter++;const no=fixedNo||songCounter;
-  const row=document.createElement('div');row.className='song-row';row.dataset.no=no;
-  row.innerHTML=`<span class="row-no">${no}.</span>
-    <label><input type="checkbox" class="show-cbx"${show?' checked':''} onchange="syncShowHide(this)">Show</label>
-    <label><input type="checkbox" class="hide-cbx"${hide?' checked':''} onchange="syncShowHide(this)">Hide</label>
-    <input class="name" type="text" placeholder="歌曲名" value="${name}" oninput="refresh()">
-    <button onclick="this.parentNode.remove();refresh()">×</button>`;
-  listbox.appendChild(row);updateRowNumbers();refresh();
+function add(name = '', show = false, hide = false, fixedNo = null) {
+  songCounter++;
+  const no = fixedNo || songCounter;
+
+  const row = document.createElement('div');
+  row.className = 'song-row';
+  row.dataset.no = no;
+
+  const span = document.createElement('span');
+  span.className = 'row-no';
+  span.textContent = `${no}.`;
+
+  const labelShow = document.createElement('label');
+  const cbShow = document.createElement('input');
+  cbShow.type = 'checkbox';
+  cbShow.className = 'show-cbx';
+  cbShow.checked = show;
+  cbShow.onchange = () => syncShowHide(cbShow);
+  labelShow.appendChild(cbShow);
+  labelShow.appendChild(document.createTextNode('Show'));
+
+  const labelHide = document.createElement('label');
+  const cbHide = document.createElement('input');
+  cbHide.type = 'checkbox';
+  cbHide.className = 'hide-cbx';
+  cbHide.checked = hide;
+  cbHide.onchange = () => syncShowHide(cbHide);
+  labelHide.appendChild(cbHide);
+  labelHide.appendChild(document.createTextNode('Hide'));
+
+  const input = document.createElement('input');
+  input.className = 'name';
+  input.type = 'text';
+  input.placeholder = '题目';
+  input.value = name;
+  input.oninput = refresh;
+
+  const btn = document.createElement('button');
+  btn.textContent = '×';
+  btn.onclick = () => { row.remove(); refresh(); };
+
+  row.append(span, labelShow, labelHide, input, btn);
+  listbox.appendChild(row);
+
+  updateRowNumbers();
+  refresh();
 }
+
 function syncShowHide(cb){
   const r=cb.closest('.song-row');
   if(cb.classList.contains('show-cbx')&&cb.checked)r.querySelector('.hide-cbx').checked=false;
@@ -822,27 +860,26 @@ function sort_by_length(){
     .forEach(r=>listbox.appendChild(r));updateRowNumbers();refresh();
 }
 function import_from_text() {
-  listbox.innerHTML = '';  // 清空当前的歌曲列表
-  songCounter = 0;  // 重置歌曲计数器
-  
-  // 获取导入框中的文本并按行拆分
-  const inputText = importBox.value.trim();
-  const lines = inputText.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  listbox.innerHTML = '';
+  songCounter = 0;
 
-  // 遍历每一行，并判断是否包含已标明的序号
+  const lines = importBox.value.trim().split(/\r?\n/).filter(Boolean);
   lines.forEach((line, index) => {
-    // 使用正则表达式检查行是否有序号（如 "1. 歌曲名"）
-    const match = line.match(/^\s*\d+\.\s*(.+)$/);
+    // 尝试匹配编号（支持前面有空格，如 "1. " 或 " 2. "）
+    const match = line.match(/^\s*(\d+)\.\s*(.*)$/);
     if (match) {
-      // 如果有序号，则只提取歌曲名
-      add(match[1].trim(), false, false, parseInt(match[0].split('.')[0])); // 使用解析出来的序号
+      const no = parseInt(match[1]);   // 编号
+      const title = match[2];          // 剩余内容（允许含 "）
+      add(title, false, false, no);
     } else {
-      // 如果没有序号，则自动添加序号
-      add(line, false, false, index + 1); // 自动编号
+      // 没有编号的行也支持，自动编号
+      add(line, false, false, index + 1);
     }
   });
-  refresh();  // 更新页面显示
+
+  refresh();
 }
+
 
 function syncImportBox(){
   const lines=[];[...listbox.querySelectorAll('.name')].forEach((i,k)=>{const v=i.value.trim();if(v)lines.push(`${k+1}. ${v}`);});
@@ -880,7 +917,7 @@ async function addRandomSongs(){
   const limit=document.getElementById('limitType').value;
   const count=parseInt(document.getElementById('randomCount').value)||10;
   const ranges=[...document.querySelectorAll('.range-cbx:checked')].map(cb=>cb.value);
-  if(!ranges.length){alert('请至少选择一个歌曲范围');return;}
+  if(!ranges.length){alert('请至少选择一个范围');return;}
   try{
     let pool=[];
     for(const r of ranges){
@@ -890,13 +927,13 @@ async function addRandomSongs(){
     pool=[...new Set(pool)]; // 去重，防止不同范围重复
     pool=pool.filter(Boolean);
     const available=pool.filter(t=>filterTitle(t,limit));
-    if(!available.length){alert('符合条件的歌曲为空');return;}
+    if(!available.length){alert('符合条件的为空');return;}
     const current=new Set([...listbox.querySelectorAll('.name')].map(i=>i.value.trim()));
     const unused=available.filter(t=>!current.has(t));
-    if(!unused.length){alert('列表中已包含所有符合条件歌曲');return;}
+    if(!unused.length){alert('列表中已包含所有符合条件题目');return;}
     shuffle(unused);
     unused.slice(0,Math.min(count,unused.length)).forEach(t=>add(t));
-  }catch(e){alert('读取歌曲文件失败');console.error(e);}
+  }catch(e){alert('读取文件失败');console.error(e);}
 }
 
 /* ========== 主题切换 ========= */
