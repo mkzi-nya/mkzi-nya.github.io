@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>mkzi</title>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
-<style>
+  <style>
     :root {
       --bg-color: #1a1a1a;
       --text-color: #ffffff;
@@ -68,19 +69,19 @@
     }
 
     .bio a {
-        color: lightblue;
-        text-decoration: underline;
+      color: lightblue;
+      text-decoration: underline;
     }
 
     /* 修改超链接的颜色 */
     body[data-theme="light"] .bio a,
     body[data-theme="light"] .social-card a {
-        color: blue;
+      color: blue;
     }
 
     body[data-theme="dark"] .bio a,
     body[data-theme="dark"] .social-card a {
-        color: lightblue;
+      color: lightblue;
     }
 
     .social-row {
@@ -109,7 +110,8 @@
     .icon-only {
       width: 60px;
       height: 60px;
-      background: rgba(ff, ff, ff, 0.3); /* 50% 黑色透明 */
+      background: rgba(ff, ff, ff, 0.3);
+      /* 50% 黑色透明 */
       border-radius: 12px;
       display: flex;
       align-items: center;
@@ -180,9 +182,10 @@
         justify-content: flex-start;
       }
     }
-</style>
+  </style>
 
 </head>
+
 <body>
   <button class="theme-toggle" onclick="toggleTheme()">
     <i class="fas fa-moon"></i>
@@ -198,26 +201,26 @@
     </section>
 
     <!-- 社交卡片行 -->
-<div class="social-row">
-  <!-- Discord 图标 -->
-  <a href="https://discordapp.com/users/1135097559891853435" target="_blank" class="icon-only">
-    <i class="fab fa-discord"></i>
-  </a>
+    <div class="social-row">
+      <!-- Discord 图标 -->
+      <a href="https://discordapp.com/users/1135097559891853435" target="_blank" class="icon-only">
+        <i class="fab fa-discord"></i>
+      </a>
 
-  <!-- GitHub 图标 -->
-  <a href="https://github.com/mkzi-nya" target="_blank" class="icon-only">
-    <i class="fab fa-github"></i>
-  </a>
+      <!-- GitHub 图标 -->
+      <a href="https://github.com/mkzi-nya" target="_blank" class="icon-only">
+        <i class="fab fa-github"></i>
+      </a>
 
-  <!-- QQ 卡片 -->
-  <div class="social-card">
-    <i class="fab fa-qq"></i>
-    <div>
-      <a href="https://qm.qq.com/q/UfEfmy7MEE" target="_blank">2450382239</a>
-      <a href="https://qm.qq.com/q/IfsuPxdYEo" target="_blank">2013773457</a>
+      <!-- QQ 卡片 -->
+      <div class="social-card">
+        <i class="fab fa-qq"></i>
+        <div>
+          <a href="https://qm.qq.com/q/UfEfmy7MEE" target="_blank">2450382239</a>
+          <a href="https://qm.qq.com/q/IfsuPxdYEo" target="_blank">2013773457</a>
+        </div>
+      </div>
     </div>
-  </div>
-</div>
 
   </div>
 
@@ -244,4 +247,5 @@
     }
   </script>
 </body>
+
 </html>
