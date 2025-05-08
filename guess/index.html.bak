@@ -309,8 +309,8 @@ const rangeList = [
   ['muse dash', 'muse dash'],
   ['Paradigm : Reboot', 'Paradigm'],
   ['milthm曲/谱师', 'milthm1'],
-  ['awa…?', 'awa'],
-  ['古诗', 'poems'],
+  ['awa…?', 'awa']
+  ['古诗', 'poems']
   ['古诗填空', 'comprehensions']
 ];
 
