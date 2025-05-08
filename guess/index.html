@@ -165,7 +165,7 @@ let isInitialLoad = true;
 
 let tabs = []; // 保存所有标签页编号，如 [1, 2, 3]
 let currentTab = 1; // 当前标签页编号
-let tabData = {}; // 所有标签页对应的数据：{ 1: {...}, 2: {...} }
+let tabData = {};
 
 const TAB_KEY = 'songToolTabs';
 function saveTabs() {
@@ -799,7 +799,7 @@ function refresh() {
 
 
 /* ========== 歌曲行操作 ========= */
-function updateRowNumbers(){[...listbox.children].forEach((r,i)=>r.querySelector('.row-no').textContent=(i+1)+'.');}
+function updateRowNumbers(){[...listbox.children].forEach((r,i)=>r.querySelector('.row-no').textContent=(i+1)+'');}
 function add(name = '', show = false, hide = false, fixedNo = null) {
   songCounter++;
   const no = fixedNo || songCounter;
