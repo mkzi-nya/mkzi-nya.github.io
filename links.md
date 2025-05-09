@@ -9,4 +9,4 @@
 - [Mercury](https://chat.inceptionlabs.ai/)
 - [mc种子解析](https://www.chunkbase.com/apps/)
 - [卡哇伊滴](http://www.staggeringbeauty.com/)
-- [Dason's Fork](http://xuziyao.com/)
+- [Dason's Page](http://xuziyao.com/)
