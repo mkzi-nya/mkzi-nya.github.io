@@ -412,7 +412,7 @@
         decompFT = new Map(),
         charPinyin = new Map();
       let decompLoaded = 0;
-      fetch("./zi.tsv")
+      fetch("../zi.tsv")
         .then((r) => r.text())
         .then((t) => {
           t.trim()
@@ -425,7 +425,7 @@
             });
           refresh();
         });
-      fetch("./chaizi-master/fanjian_suoyin.txt")
+      fetch("../chaizi-master/fanjian_suoyin.txt")
         .then((r) => r.text())
         .then((t) => {
           t.trim()
@@ -453,10 +453,10 @@
         if (decompLoaded === 2) buildGlobalEquiv();
         refresh();
       }
-      fetch("./chaizi-master/chaizi-jt.txt")
+      fetch("../chaizi-master/chaizi-jt.txt")
         .then((r) => r.text())
         .then((t) => loadChaizi(t, decompJT));
-      fetch("./chaizi-master/chaizi-ft.txt")
+      fetch("../chaizi-master/chaizi-ft.txt")
         .then((r) => r.text())
         .then((t) => loadChaizi(t, decompFT));
       function removeTone(pinyin) {
@@ -495,7 +495,7 @@
         );
       }
 
-      fetch("./pinyin.txt")
+      fetch("../pinyin.txt")
         .then((r) => r.text())
         .then((text) => {
           for (const line of text.split("\n")) {
@@ -984,7 +984,7 @@
         importBox.value = lines.join("\n");
       }
 
-      /* ========== 随机歌曲：读取 ./ck/xxx.txt ========= */
+      /* ========== 随机歌曲：读取 ../ck/xxx.txt ========= */
       function filterTitle(title, limit) {
         switch (limit) {
           case "letters":
@@ -1029,7 +1029,7 @@
         try {
           let pool = [];
           for (const r of ranges) {
-            const txt = await fetch(`./ck/${r}.txt`).then((e) => e.text());
+            const txt = await fetch(`../ck/${r}.txt`).then((e) => e.text());
             pool.push(
               ...txt
                 .split(/\r?\n/)
