@@ -550,30 +550,25 @@
       return pinyin.replace(/[āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜüńň]/g, m => map[m] || m);
     }
 
-    fetch('./pinyin.txt').then(r => r.text()).then(text => {
-      for (const line of text.split('\n')) {
-        if (line.startsWith('#')) continue;
-        const match = line.match(/^U\+([0-9A-F]{4,6}):\s*([\w,üǖǘǚǜǎěǐǒǔāēīōūńň]+).*#\s*(.)/iu);
-        if (match) {
-          const codePoint = parseInt(match[1], 16);
-          const char = String.fromCodePoint(codePoint);
-          const pyRaw = match[2].split(',')[0];
-          const py = removeTone(pyRaw.toLowerCase());
-          charPinyinExt.set(char, py);
-        }
-      }
-      refresh();
-    });
+    fetch('./Han-Latin.xml').then(r => r.text()).then(xmlText => {
+  const regex = /\[([^\]]+)\]→([a-züǖǘǚǜāáǎàēéěèīíǐìōóǒòūúǔùńň]+);/g;
+  let match;
+  while ((match = regex.exec(xmlText)) !== null) {
+    const chars = match[1];
+    const pinyinRaw = match[2];
+    for (const ch of chars) {
+      charPinyin.set(ch, pinyinRaw); // 保留原始带声调形式
+      charPinyinExt.set(ch, removeTone(pinyinRaw.toLowerCase().replace(/ü/g, 'v'))); // 为拼音猜测做匹配
+    }
+  }
+  refresh();
+});
+
 
     function getPinyin(ch) {
-      if (charPinyin.has(ch)) return charPinyin.get(ch);
-      if (charPinyinExt.has(ch)) {
-        const py = charPinyinExt.get(ch);
-        charPinyin.set(ch, py);
-        return py;
-      }
-      return '';
-    }
+  return charPinyin.get(ch) || '';
+}
+
 
     /* ========== 部件等价 ========= */
     const compEquiv = new Map();
@@ -608,11 +603,23 @@
       return canonicalize(c);
     }
     function strokeGuessed(st, numStrs) { return numStrs.some(s => s.includes(st)); }
-    function splitInitialFinal(py) {
-      let init = '', final = py;
-      for (const ini of initList) if (py.startsWith(ini)) { init = ini; final = py.slice(ini.length); break; }
-      return { init, final };
+function splitInitialFinal(pinyin) {
+  const plain = removeTone(pinyin.toLowerCase().replace(/ü/g, 'v'));
+  let init = '', final = '', rawFinal = '';
+
+  for (const ini of initList) {
+    if (plain.startsWith(ini)) {
+      init = ini;
+      final = plain.slice(ini.length);
+      rawFinal = pinyin.slice(ini.length); // 带声调部分
+      return { init, final, rawFinal };
     }
+  }
+
+  final = plain;
+  rawFinal = pinyin;
+  return { init: '', final, rawFinal };
+}
     function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; } }
     function getDecomps(ch) {
       if (decompJT.has(ch)) return decompJT.get(ch);
@@ -754,8 +761,10 @@
       const canonSet = new Set(raw.map(c => normalizeChar(c)));
       const numStrs = Array.from(guessbox.value.match(/\d+/g) || []);
       const pinyinActive = (mode === 'han' && enablePinyin.checked);
-      const pySegs = pinyinActive ? pinyinGuessBox.value.toLowerCase().split(',').map(s => s.trim()).filter(Boolean) : [];
-      const pySet = new Set(pySegs);
+const pySegsRaw = pinyinActive ? pinyinGuessBox.value.toLowerCase().split(',').map(s => s.trim()).filter(Boolean) : [];
+const pySegs = pySegsRaw.map(removeTone);  // 标准化：去声调、ü变v等
+const pySet = new Set(pySegs);
+
       const skipSet = new Set(skipCharsBox.value.split(''));
 
       const remainingComp = new Set(), guessedStroke = new Set();
@@ -763,54 +772,59 @@
 
       const PH_BSL = '\0BSL', PH_LB = '\0LBR', PH_RB = '\0RBR';
 
-      function parseSegment(text, showInfo) {
-        let seg = '';
-        for (const ch of text) {
-          if (skipSet.has(ch)) { seg += ch; continue; }
-          const canon = normalizeChar(ch);
-          const isHan = hanRegex.test(ch);
-          const stroke = strokeMap.get(ch) || '';
-          const chGuessed = canonSet.has(canon);
+function parseSegment(text, showInfo) {
+  let seg = '';
+  for (const ch of text) {
+    if (skipSet.has(ch)) { seg += ch; continue; }
+    const canon = normalizeChar(ch);
+    const isHan = hanRegex.test(ch);
+    const stroke = strokeMap.get(ch) || '';
+    const chGuessed = canonSet.has(canon);
 
-          if (mode === 'han' && isHan) {
-            const comps = defaultComponents(ch);
-            const pyRaw = getPinyin(ch) || '';
-            let pyDisp = '', hasPy = false;
+    if (mode === 'han' && isHan) {
+      const comps = defaultComponents(ch);
+      const pyRaw = getPinyin(ch) || '';
+      let pyDisp = '', hasPy = false;
 
-            if (pinyinActive && pyRaw) {
-              const { init, final } = splitInitialFinal(pyRaw);
-              const initG = pySet.has(init), finalG = pySet.has(final);
-              hasPy = true;
-              if (showInfo) {
-                pyDisp = pyRaw;
-              } else if (init) {
-                if (initG && finalG) pyDisp = pyRaw;
-                else if (initG) pyDisp = init + '-';
-                else if (finalG) pyDisp = '-' + final;
-                else pyDisp = '--';
-              } else {
-                pyDisp = finalG ? final : '--';
-              }
-            }
+      if (pinyinActive && pyRaw) {
+        // 获取声母/韵母（保留带调的原始韵母 rawFinal）
+        const { init, final, rawFinal } = splitInitialFinal(pyRaw);
+        const normInit = removeTone(init.toLowerCase().replace(/ü/g, 'v'));
+        const normFinal = removeTone(final.toLowerCase().replace(/ü/g, 'v'));
+        const initG = pySet.has(normInit), finalG = pySet.has(normFinal);
+        hasPy = true;
 
-            if (chGuessed) {
-              seg += ch;
-              if (stroke) guessedStroke.add(stroke);
-            } else {
-              comps.forEach(cp => {
-                if (!canonSet.has(normalizeChar(cp))) remainingComp.add(cp);
-              });
-              if (stroke && strokeGuessed(stroke, numStrs)) guessedStroke.add(stroke);
-              const compShow = comps.map(cp => canonSet.has(normalizeChar(cp)) || showInfo ? cp : '-').join('/');
-              const stShow = (stroke && (strokeGuessed(stroke, numStrs) || showInfo)) ? stroke : '-';
-              seg += (showInfo ? ch : '*') + (hasPy ? `(${pyDisp},${stShow},${compShow})` : `(${stShow},${compShow})`);
-            }
-          } else {
-            seg += (chGuessed || showInfo) ? ch : '*';
-          }
+        if (showInfo) {
+          pyDisp = pyRaw;
+        } else if (init) {
+          if (initG && finalG) pyDisp = pyRaw;
+          else if (initG) pyDisp = init + '-';
+          else if (finalG) pyDisp = '-' + rawFinal;
+          else pyDisp = '--';
+        } else {
+          pyDisp = finalG ? rawFinal : '--';
         }
-        return seg;
       }
+
+      if (chGuessed) {
+        seg += ch;
+        if (stroke) guessedStroke.add(stroke);
+      } else {
+        comps.forEach(cp => {
+          if (!canonSet.has(normalizeChar(cp))) remainingComp.add(cp);
+        });
+        if (stroke && strokeGuessed(stroke, numStrs)) guessedStroke.add(stroke);
+        const compShow = comps.map(cp => canonSet.has(normalizeChar(cp)) || showInfo ? cp : '-').join('/');
+        const stShow = (stroke && (strokeGuessed(stroke, numStrs) || showInfo)) ? stroke : '-';
+        seg += (showInfo ? ch : '*') + (hasPy ? `(${pyDisp},${stShow},${compShow})` : `(${stShow},${compShow})`);
+      }
+    } else {
+      seg += (chGuessed || showInfo) ? ch : '*';
+    }
+  }
+  return seg;
+}
+
 
       listbox.querySelectorAll('.song-row').forEach(row => {
         const hide = row.querySelector('.hide-cbx').checked;
