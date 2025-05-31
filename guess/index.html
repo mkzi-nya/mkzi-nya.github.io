@@ -198,6 +198,7 @@
       <div style="display:flex;flex-wrap:wrap;gap:8px">
         <button onclick="add()">添加</button>
         <button onclick="sort_by_length()">按长度排序</button>
+        <button onclick="svji()">随机排序</button>
         <button onclick="selectAll()">反选</button>
         <button onclick="toggleSongList()" id="toggleSongBtn">折叠</button>
       </div>
@@ -1020,6 +1021,14 @@ function parseSegment(text, showInfo) {
       [...listbox.children].sort((a, b) => a.querySelector('.name').value.length - b.querySelector('.name').value.length)
         .forEach(r => listbox.appendChild(r)); updateRowNumbers(); refresh();
     }
+    function svji() {
+    [...listbox.children]
+      .sort(() => Math.random() - 0.5)  // 用随机数打乱顺序
+      .forEach(r => listbox.appendChild(r));
+    updateRowNumbers();
+    refresh();
+}
+
     function import_from_text() {
       listbox.innerHTML = '';
       songCounter = 0;
