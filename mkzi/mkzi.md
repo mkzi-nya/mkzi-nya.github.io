@@ -10,6 +10,6 @@
 - 曾练过的一些音游：phigros,milthm,notanote,arcaea,cytus  
     phigros：16.80(已退)，单手[15.72](./mkzi/phi.jpg)(已退)  
     milthm：[12.53](./mkzi/mil.png)(pc)，单指10.8(pc,已退)  
-    arcaea：[12.2](./mkzi/arc.jpg)(已退)  
+    arcaea：[12.25](./mkzi/arc.jpg)(掉下来了)  
     当前最高成就：单手ieo/白复生 at fc  
 - some apps：[Home](./home.html)，[Milthm calc](https://mkzi-nya.github.io/milthm-calculator-web/)，[Notanote calc](https://mkzi-nya.github.io/notanote-calculator/)，[guess](./guess/)  
