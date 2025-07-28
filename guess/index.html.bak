@@ -256,7 +256,7 @@
   <button onclick="downloadAsImage()">下载</button>
 </h2>
 
-    <div class="card" id="outputWrapper">
+    <div class="card">
       <pre id="output"></pre>
     </div>
 
@@ -1137,24 +1137,25 @@ function parseSegment(text, showInfo) {
     });
     function toClipboard() { navigator.clipboard.writeText(output.textContent); }
 function downloadAsImage() {
-  const wrapper = document.getElementById('outputWrapper'); // 整个框
-  const outputElement = document.getElementById('output');
+  // 获取 card 容器，而不是 pre
+  const cardElement = document.querySelector('.card');
 
-  // 文件名 guess_out_时间轴.png
+  // 文件名：guess_out_时间戳
   const timestamp = new Date().toISOString().replace(/[-:T]/g, '').split('.')[0];
   const fileName = `guess_out_${timestamp}.png`;
 
-  // 解除 max-height 和滚动，保证内容完整
+  // 临时解除内部 pre 的高度限制，确保截图完整
+  const outputElement = document.getElementById('output');
   const prevMaxHeight = outputElement.style.maxHeight;
   const prevOverflowY = outputElement.style.overflowY;
   outputElement.style.maxHeight = 'none';
   outputElement.style.overflowY = 'visible';
 
-  html2canvas(wrapper, {
+  html2canvas(cardElement, {
     backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg'),
     scale: 2 // 提高清晰度
   }).then(canvas => {
-    // 恢复原样
+    // 恢复原样式
     outputElement.style.maxHeight = prevMaxHeight;
     outputElement.style.overflowY = prevOverflowY;
 
