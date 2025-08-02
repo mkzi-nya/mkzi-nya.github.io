@@ -76440,6 +76440,7 @@ const data___zi_tsv = `zi	stroke_count
         <input type="checkbox" id="enablePinyin" onchange="togglePinyin()"> 拼音
       </label>
       <label><input type="checkbox" id="enableBlank" onchange="refresh()"> 填空</label>
+      <label><input type="checkbox" id="enableKatakana" onchange="refresh()"> <s>这是片假名吗</s></label>
     </div>
 
     <!-- 行2：guess -->
@@ -76529,6 +76530,14 @@ const data___zi_tsv = `zi	stroke_count
 
 
   <script>
+  const katakana_font = {
+    'A': 'ㄙ', 'B': 'ㄯ', 'C': 'ㄈ', 'D': 'ワ', 'E': '⋿', 'F': 'チ', 'G': 'Ᏽ', 'H': 'サ',
+    'I': 'エ', 'J': '𝙅', 'K': 'ケ', 'L': '㆑', 'M': '巾', 'N': 'ウ', 'O': 'ロ', 'P': 'ア',
+    'Q': '∅', 'R': 'Ʀ', 'S': 'ㄎ', 'T': 'ナ', 'U': 'ㄩ', 'V': '√', 'W': '山', 'X': 'メ',
+    'Y': 'ン', 'Z': 'て', '1': 'イ', '2': 'ㄹ', '3': 'ヨ', '4': 'ㄣ', '5': 'ㄎ', '6': '〥',
+    '7': 'フ', '8': 'ㄖ', '9': 'ヌ', '0': 'ㇿ'
+};
+
     const ansSelectionMap = {};
     let isInitialLoad = true;
 
@@ -76965,223 +76974,231 @@ function splitInitialFinal(pinyin) {
     }
 
     /* ========== 刷新核心 ========= */
-    function refresh() {
-      const mode = getMode();
-      const enableBlank = document.getElementById('enableBlank')?.checked;
+ function refresh() {
+  const mode = getMode();
+  const enableBlank = document.getElementById('enableBlank')?.checked;
 
-      if (sortOpt.checked) {
-        if (mode === 'han') {
-          guessbox.value = [...new Set([...guessbox.value]
-            .filter(c => !/\d/.test(c))
-            .map(ch => /[A-Za-z]/.test(ch) ? ch.toLowerCase() : ch)
-            .sort())].join('') + guessbox.value.replace(/[^0-9]/g, '');
-        } else {
-          guessbox.value = [...new Set([...guessbox.value]
-            .map(ch => /[A-Za-z]/.test(ch) ? ch.toLowerCase() : ch)
-            .sort())].join('');
-        }
-      }
-
-      const raw = [...guessbox.value].map(c => /[A-Za-z]/.test(c) ? c.toLowerCase() : c);
-      const canonSet = new Set(raw.map(c => normalizeChar(c)));
-      const numStrs = Array.from(guessbox.value.match(/\d+/g) || []);
-      const pinyinActive = (mode === 'han' && enablePinyin.checked);
-const pySegsRaw = pinyinActive ? pinyinGuessBox.value.toLowerCase().split(',').map(s => s.trim()).filter(Boolean) : [];
-const pySegs = pySegsRaw.map(removeTone);  // 标准化：去声调、ü变v等
-const pySet = new Set(pySegs);
-
-      const skipSet = new Set(skipCharsBox.value.split(''));
-
-      const remainingComp = new Set(), guessedStroke = new Set();
-      const outLines = [], answerLines = [];
-
-      const PH_BSL = '\0BSL', PH_LB = '\0LBR', PH_RB = '\0RBR';
-
-function parseSegment(text, showInfo) {
-  let seg = '';
-  for (const ch of text) {
-    if (skipSet.has(ch)) { seg += ch; continue; }
-    const canon = normalizeChar(ch);
-    const isHan = hanRegex.test(ch);
-    const stroke = strokeMap.get(ch) || '';
-    const chGuessed = canonSet.has(canon);
-
-    if (mode === 'han' && isHan) {
-      const comps = defaultComponents(ch);
-      const pyRaw = getPinyin(ch) || '';
-      let pyDisp = '', hasPy = false;
-
-      if (pinyinActive && pyRaw) {
-        // 获取声母/韵母（保留带调的原始韵母 rawFinal）
-        const { init, final, rawFinal } = splitInitialFinal(pyRaw);
-        const normInit = removeTone(init.toLowerCase().replace(/ü/g, 'v'));
-        const normFinal = removeTone(final.toLowerCase().replace(/ü/g, 'v'));
-        const initG = pySet.has(normInit), finalG = pySet.has(normFinal);
-        hasPy = true;
-
-        if (showInfo) {
-          pyDisp = pyRaw;
-        } else if (init) {
-          if (initG && finalG) pyDisp = pyRaw;
-          else if (initG) pyDisp = init + '-';
-          else if (finalG) pyDisp = '-' + rawFinal;
-          else pyDisp = '--';
-        } else {
-          pyDisp = finalG ? rawFinal : '--';
-        }
-      }
-
-      if (chGuessed) {
-        seg += ch;
-        if (stroke) guessedStroke.add(stroke);
-      } else {
-        comps.forEach(cp => {
-          if (!canonSet.has(normalizeChar(cp))) remainingComp.add(cp);
-        });
-        if (stroke && strokeGuessed(stroke, numStrs)) guessedStroke.add(stroke);
-        const compShow = comps.map(cp => canonSet.has(normalizeChar(cp)) || showInfo ? cp : '-').join('/');
-        const stShow = (stroke && (strokeGuessed(stroke, numStrs) || showInfo)) ? stroke : '-';
-        seg += (showInfo ? ch : '*') + (hasPy ? `(${pyDisp},${stShow},${compShow})` : `(${stShow},${compShow})`);
-      }
+  if (sortOpt.checked) {
+    if (mode === 'han') {
+      guessbox.value = [...new Set([...guessbox.value]
+        .filter(c => !/\d/.test(c))
+        .map(ch => /[A-Za-z]/.test(ch) ? ch.toLowerCase() : ch)
+        .sort())].join('') + guessbox.value.replace(/[^0-9]/g, '');
     } else {
-      seg += (chGuessed || showInfo) ? ch : '*';
+      guessbox.value = [...new Set([...guessbox.value]
+        .map(ch => /[A-Za-z]/.test(ch) ? ch.toLowerCase() : ch)
+        .sort())].join('');
     }
   }
-  return seg;
+
+  const raw = [...guessbox.value].map(c => /[A-Za-z]/.test(c) ? c.toLowerCase() : c);
+  const canonSet = new Set(raw.map(c => normalizeChar(c)));
+  const numStrs = Array.from(guessbox.value.match(/\d+/g) || []);
+  const pinyinActive = (mode === 'han' && enablePinyin.checked);
+  const pySegsRaw = pinyinActive ? pinyinGuessBox.value.toLowerCase().split(',').map(s => s.trim()).filter(Boolean) : [];
+  const pySegs = pySegsRaw.map(removeTone);  // 标准化：去声调、ü变v等
+  const pySet = new Set(pySegs);
+
+  const skipSet = new Set(skipCharsBox.value.split(''));
+
+  const remainingComp = new Set(), guessedStroke = new Set();
+  const outLines = [], answerLines = [];
+
+  const PH_BSL = '\0BSL', PH_LB = '\0LBR', PH_RB = '\0RBR';
+
+  function parseSegment(text, showInfo) {
+    let seg = '';
+    for (const ch of text) {
+      if (skipSet.has(ch)) { seg += ch; continue; }
+      const canon = normalizeChar(ch);
+      const isHan = hanRegex.test(ch);
+      const stroke = strokeMap.get(ch) || '';
+      const chGuessed = canonSet.has(canon);
+
+      if (mode === 'han' && isHan) {
+        const comps = defaultComponents(ch);
+        const pyRaw = getPinyin(ch) || '';
+        let pyDisp = '', hasPy = false;
+
+        if (pinyinActive && pyRaw) {
+          // 获取声母/韵母（保留带调的原始韵母 rawFinal）
+          const { init, final, rawFinal } = splitInitialFinal(pyRaw);
+          const normInit = removeTone(init.toLowerCase().replace(/ü/g, 'v'));
+          const normFinal = removeTone(final.toLowerCase().replace(/ü/g, 'v'));
+          const initG = pySet.has(normInit), finalG = pySet.has(normFinal);
+          hasPy = true;
+
+          if (showInfo) {
+            pyDisp = pyRaw;
+          } else if (init) {
+            if (initG && finalG) pyDisp = pyRaw;
+            else if (initG) pyDisp = init + '-';
+            else if (finalG) pyDisp = '-' + rawFinal;
+            else pyDisp = '--';
+          } else {
+            pyDisp = finalG ? rawFinal : '--';
+          }
+        }
+
+        if (chGuessed) {
+          seg += ch;
+          if (stroke) guessedStroke.add(stroke);
+        } else {
+          comps.forEach(cp => {
+            if (!canonSet.has(normalizeChar(cp))) remainingComp.add(cp);
+          });
+          if (stroke && strokeGuessed(stroke, numStrs)) guessedStroke.add(stroke);
+          const compShow = comps.map(cp => canonSet.has(normalizeChar(cp)) || showInfo ? cp : '-').join('/');
+          const stShow = (stroke && (strokeGuessed(stroke, numStrs) || showInfo)) ? stroke : '-';
+          seg += (showInfo ? ch : '*') + (hasPy ? `(${pyDisp},${stShow},${compShow})` : `(${stShow},${compShow})`);
+        }
+      } else {
+        seg += (chGuessed || showInfo) ? ch : '*';
+      }
+    }
+    return seg;
+  }
+
+  listbox.querySelectorAll('.song-row').forEach(row => {
+    const hide = row.querySelector('.hide-cbx').checked;
+    const showInfo = row.querySelector('.show-cbx').checked;
+    const original = row.querySelector('.name').value;
+    const no = row.querySelector('.row-no').textContent.trim();
+    if (!original || hide) {
+      outLines.push(null);
+      return;
+    }
+
+    // Escape 转义处理
+    let content = original
+      .replace(/\\\\/g, PH_BSL)
+      .replace(/\\\[/g, PH_LB)
+      .replace(/\\\]/g, PH_RB);
+
+    if (enableBlank && /\[.*?\]/.test(content)) {
+      const segments = [];
+      const answers = [];
+      let last = 0;
+
+      content.replace(/\[(.+?)\]/g, (m, a, idx) => {
+        // 不匹配转义的左中括号（如 PH_LB）
+        if (content.slice(idx - 4, idx) === PH_LB) return;
+
+        if (idx > last) {
+          segments.push({ type: 'text', text: content.slice(last, idx) });
+        }
+        segments.push({ type: 'blank', answer: a });
+        answers.push(a);
+        last = idx + m.length;
+      });
+
+      if (last < content.length) {
+        segments.push({ type: 'text', text: content.slice(last) });
+      }
+
+      row.dataset.type = 'blank';
+      row.dataset.answers = JSON.stringify(answers);
+      const checkedMap = ansSelectionMap[no] || {};
+      const allChecked = answers.every((_, i) => checkedMap[i]);
+
+      let line = '';
+      if (allChecked) {
+        line = original
+          .replace(/\\\\/g, '\\')
+          .replace(/\\\[/g, '[')
+          .replace(/\\\]/g, ']');
+      } else {
+        let bi = 0;
+        const parts = segments.map(seg => {
+          if (seg.type === 'text') {
+            const unescaped = seg.text
+              .replace(new RegExp(PH_BSL, 'g'), '\\')
+              .replace(new RegExp(PH_LB, 'g'), '[')
+              .replace(new RegExp(PH_RB, 'g'), ']');
+            return parseSegment(unescaped, showInfo);
+          }
+          const checked = !!checkedMap[bi];
+          const ans = seg.answer;
+          bi++;
+          return checked ? `[${ans}]` : '[]';
+        });
+        line = parts.join('');
+      }
+
+      outLines.push(`${no}. ${line}`);
+
+      // 答案区域构建
+      let ansLine = `${no}. `;
+      answers.forEach((ans, ai) => {
+        const checked = !!checkedMap[ai];
+        ansLine += `<label><input type="checkbox" class="ans-cbx" data-row="${no}" data-idx="${ai}" ${checked ? 'checked' : ''}>${ans}</label>`;
+        if (ai < answers.length - 1) ansLine += '，';
+      });
+      answerLines.push(ansLine);
+    } else {
+      // 普通题
+      const parsed = parseSegment(original, showInfo);
+      outLines.push(`${no}. ${parsed}`);
+    }
+  });
+
+  const guessedArr = [...new Set(raw)];
+  guessedStroke.forEach(st => {
+    if (!guessedArr.includes(st)) guessedArr.push(st);
+  });
+
+  let header = 'guessed: ' + guessedArr.join(',') + '\n';
+  if (pinyinActive) header += 'pinyin: ' + pySegs.join(',') + '\n';
+
+  if (compOrder.length === 0) {
+    compOrder = [...remainingComp];
+    shuffle(compOrder);
+  } else {
+    remainingComp.forEach(c => {
+      if (!compOrder.includes(c)) compOrder.push(c);
+    });
+    compOrder = compOrder.filter(c => remainingComp.has(c));
+  }
+
+  if (mode === 'han' && showComp.checked) {
+    header += '剩余部件: ' + compOrder.join('') + '\n';
+  }
+
+  let explain = '';
+  if (mode === 'han') {
+    explain = pinyinActive
+      ? '\n格式说明：未开出的汉字显示为 *(拼音/笔画数/部件)\n拼音格式：声+韵，如双sh-/-uang'
+      : '\n格式说明：未开出的汉字显示为 *(笔画数/部件)';
+  }
+
+  const hint = document.getElementById('hintText')?.value.trim();
+  const hintText = hint ? `\n${hint}` : '';
+
+  // **拼接最终输出**
+  let finalText = header + outLines.filter(l => l !== null).join('\n') + explain + hintText;
+
+  // === 新增：片假名替换逻辑 ===
+  const katakanaEnabled = document.getElementById('enableKatakana')?.checked;
+  if (katakanaEnabled) {
+    finalText = finalText.replace(/[A-Za-z0-9]/g, ch => katakana_font[ch.toUpperCase()] || ch);
+  }
+
+  output.textContent = finalText;
+
+  const answerZone = document.getElementById('answerZone');
+  if (answerLines.length) {
+    answerZone.style.display = 'block';
+    answerZone.innerHTML = answerLines.join('<br>');
+  } else {
+    answerZone.style.display = 'none';
+    answerZone.innerHTML = '';
+  }
+
+  syncImportBox();
+  updateRowNumbers();
+  saveState();
 }
 
-
-      listbox.querySelectorAll('.song-row').forEach(row => {
-        const hide = row.querySelector('.hide-cbx').checked;
-        const showInfo = row.querySelector('.show-cbx').checked;
-        const original = row.querySelector('.name').value;
-        const no = row.querySelector('.row-no').textContent.trim();
-        if (!original || hide) {
-          outLines.push(null);
-          return;
-        }
-
-        // Escape 转义处理
-        let content = original
-          .replace(/\\\\/g, PH_BSL)
-          .replace(/\\\[/g, PH_LB)
-          .replace(/\\\]/g, PH_RB);
-
-        if (enableBlank && /\[.*?\]/.test(content)) {
-          const segments = [];
-          const answers = [];
-          let last = 0;
-
-          content.replace(/\[(.+?)\]/g, (m, a, idx) => {
-            // 不匹配转义的左中括号（如 PH_LB）
-            if (content.slice(idx - 4, idx) === PH_LB) return;
-
-            if (idx > last) {
-              segments.push({ type: 'text', text: content.slice(last, idx) });
-            }
-            segments.push({ type: 'blank', answer: a });
-            answers.push(a);
-            last = idx + m.length;
-          });
-
-          if (last < content.length) {
-            segments.push({ type: 'text', text: content.slice(last) });
-          }
-
-          row.dataset.type = 'blank';
-          row.dataset.answers = JSON.stringify(answers);
-          const checkedMap = ansSelectionMap[no] || {};
-          const allChecked = answers.every((_, i) => checkedMap[i]);
-
-          let line = '';
-          if (allChecked) {
-            line = original
-              .replace(/\\\\/g, '\\')
-              .replace(/\\\[/g, '[')
-              .replace(/\\\]/g, ']');
-          } else {
-            let bi = 0;
-            const parts = segments.map(seg => {
-              if (seg.type === 'text') {
-                const unescaped = seg.text
-                  .replace(new RegExp(PH_BSL, 'g'), '\\')
-                  .replace(new RegExp(PH_LB, 'g'), '[')
-                  .replace(new RegExp(PH_RB, 'g'), ']');
-                return parseSegment(unescaped, showInfo);
-              }
-              const checked = !!checkedMap[bi];
-              const ans = seg.answer;
-              bi++;
-              return checked ? `[${ans}]` : '[]';
-            });
-            line = parts.join('');
-          }
-
-
-          outLines.push(`${no}. ${line}`);
-
-          // 答案区域构建
-          let ansLine = `${no}. `;
-          answers.forEach((ans, ai) => {
-            const checked = !!checkedMap[ai];
-            ansLine += `<label><input type="checkbox" class="ans-cbx" data-row="${no}" data-idx="${ai}" ${checked ? 'checked' : ''}>${ans}</label>`;
-            if (ai < answers.length - 1) ansLine += '，';
-          });
-          answerLines.push(ansLine);
-        } else {
-          // 普通题
-          const parsed = parseSegment(original, showInfo);
-          outLines.push(`${no}. ${parsed}`);
-        }
-      });
-
-      const guessedArr = [...new Set(raw)];
-      guessedStroke.forEach(st => {
-        if (!guessedArr.includes(st)) guessedArr.push(st);
-      });
-
-      let header = 'guessed: ' + guessedArr.join(',') + '\n';
-      if (pinyinActive) header += 'pinyin: ' + pySegs.join(',') + '\n';
-
-      if (compOrder.length === 0) {
-        compOrder = [...remainingComp];
-        shuffle(compOrder);
-      } else {
-        remainingComp.forEach(c => {
-          if (!compOrder.includes(c)) compOrder.push(c);
-        });
-        compOrder = compOrder.filter(c => remainingComp.has(c));
-      }
-
-      if (mode === 'han' && showComp.checked) {
-        header += '剩余部件: ' + compOrder.join('') + '\n';
-      }
-
-      let explain = '';
-      if (mode === 'han') {
-        explain = pinyinActive
-          ? '\n格式说明：未开出的汉字显示为 *(拼音/笔画数/部件)\n拼音格式：声+韵，如双sh-/-uang'
-          : '\n格式说明：未开出的汉字显示为 *(笔画数/部件)';
-      }
-
-      const hint = document.getElementById('hintText')?.value.trim();
-      const hintText = hint ? `\n${hint}` : '';
-
-      output.textContent = header + outLines.filter(l => l !== null).join('\n') + explain + hintText;
-
-      const answerZone = document.getElementById('answerZone');
-      if (answerLines.length) {
-        answerZone.style.display = 'block';
-        answerZone.innerHTML = answerLines.join('<br>');
-      } else {
-        answerZone.style.display = 'none';
-        answerZone.innerHTML = '';
-      }
-
-      syncImportBox();
-      updateRowNumbers();
-      saveState();
-    }
 
 
     /* ========== 歌曲行操作 ========= */
