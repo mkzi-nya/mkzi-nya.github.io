@@ -1,0 +1,44 @@
+function encode(input, key) {
+  const numericKey = parseInt(key);
+  let result = '';
+
+  if (!isNaN(numericKey)) {
+    // 数字密钥：偏移编码
+    for (let ch of input) {
+      const code = ch.charCodeAt(0) + numericKey;
+      result += String.fromCharCode(code);
+    }
+  } else {
+    // 非数字密钥：输出Unicode十六进制+h
+    for (let ch of input) {
+      const hex = ch.charCodeAt(0).toString(16).padStart(4, '0');
+      result += hex + 'h';
+    }
+  }
+
+  return result;
+}
+
+function decode(input, key) {
+  const numericKey = parseInt(key);
+  let result = '';
+
+  if (!isNaN(numericKey)) {
+    // 数字密钥：逆向偏移
+    for (let ch of input) {
+      const code = ch.charCodeAt(0) - numericKey;
+      result += String.fromCharCode(code);
+    }
+  } else {
+    // 非数字密钥：从十六进制+h中解析
+    const parts = input.split('h').filter(Boolean);
+    for (let hex of parts) {
+      const code = parseInt(hex, 16);
+      if (!isNaN(code)) {
+        result += String.fromCharCode(code);
+      }
+    }
+  }
+
+  return result;
+}

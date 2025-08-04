@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>编码转换器</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- 引入 CSS -->
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header>
+    <h1>编码转换器</h1>
+  </header>
+
+  <main class="container">
+    <section>
+      <label for="inputChars">原文</label>
+      <textarea id="inputChars" placeholder="输入数据"></textarea>
+      <div class="btn-group">
+        <button data-clear="inputChars">清空</button>
+        <button data-copy="inputChars">复制</button>
+        <button data-paste="inputChars">从剪贴板导入</button>
+      </div>
+    </section>
+
+    <!-- 编码输入区 -->
+    <section>
+      <label for="inputCodes">编码</label>
+      <textarea id="inputCodes" placeholder="在此显示或输入编码"></textarea>
+      <div class="btn-group">
+        <button data-clear="inputCodes">清空</button>
+        <button data-copy="inputCodes">复制</button>
+        <button data-paste="inputCodes">从剪贴板导入</button>
+      </div>
+    </section>
+    <input type="text" id="keyInput" placeholder="输入密钥（可选）">
+    <div class="btn-group center">
+      <button id="chooseSchemaBtn">当前编码</button>
+    </div>
+  </main>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <h2>选择编码</h2>
+      <ul id="schemaList"></ul>
+      <div class="btn-group center">
+        <button id="closeModalBtn">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+  </footer>
+
+  <!-- 引入 JS -->
+  <script src="./style.js"></script>
+</body>
+</html>

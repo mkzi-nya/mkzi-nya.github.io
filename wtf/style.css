@@ -1,0 +1,153 @@
+/* ============ 全局 ============ */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #121212;
+  color: #ffffff;
+  margin: 0;
+}
+
+/* 头部与底部 */
+header, footer {
+  text-align: center;
+  padding: 1rem;
+}
+
+h1 {
+  font-size: 1.8rem;
+  margin: 0.5rem 0;
+}
+
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+/* 输入区 */
+section {
+  margin-bottom: 1.5rem;
+}
+
+label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+textarea {
+  width: 100%;
+  min-height: 100px;
+  background-color: #2a2a2a;
+  color: #ffffff;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  padding: 0.5rem;
+  font-size: 1rem;
+  resize: vertical;
+}
+
+/* 按钮组 */
+.btn-group {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.btn-group.center {
+  justify-content: center;
+}
+
+/* 按钮 */
+button {
+  background-color: #333333;
+  color: #ffffff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+button:hover {
+  background-color: #444444;
+}
+
+/* 弹窗 */
+.modal-overlay {
+  display: none; /* 默认隐藏 */
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0,0,0,0.6);
+  z-index: 999;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal {
+  background-color: #2e2e2e;
+  padding: 1rem;
+  border-radius: 8px;
+  max-width: 300px;
+  width: 80%;
+}
+
+.modal h2 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+.modal ul {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+}
+
+.modal li {
+  margin-bottom: 0.5rem;
+}
+
+.modal li button {
+  width: 100%;
+  text-align: center;
+}
+
+@font-face {
+  font-family: 'PlangothicP1';
+  src: url('./Plangothic-Web-V2.9.5779/PlangothicP1-Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PlangothicP2';
+  src: url('./Plangothic-Web-V2.9.5779/PlangothicP2-Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+html, body {
+  font-family: 'PlangothicP1', 'PlangothicP2', sans-serif;
+}
+/* 密钥输入框样式 */
+#keyInput {
+  width: 100%;
+  background-color: #2a2a2a;
+  color: #ffffff;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  padding: 0.5rem;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  box-sizing: border-box;
+}
+
+/* 焦点效果与 textarea 一致 */
+#keyInput:focus {
+  outline: none;
+  border-color: #555555;
+}
