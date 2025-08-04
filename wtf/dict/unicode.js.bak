@@ -3,16 +3,16 @@ function encode(input, key) {
   let result = '';
 
   if (!isNaN(numericKey)) {
-    // 数字密钥：偏移编码（直接返回偏移后的字符）
+    // 数字密钥：偏移编码
     for (let ch of input) {
       const code = ch.charCodeAt(0) + numericKey;
       result += String.fromCharCode(code);
     }
   } else {
-    // 非数字密钥：输出固定4位补0的Unicode十六进制
+    // 非数字密钥：输出Unicode十六进制+h
     for (let ch of input) {
       const hex = ch.charCodeAt(0).toString(16).padStart(4, '0');
-      result += hex; // 不加 h
+      result += hex;
     }
   }
 
@@ -30,9 +30,9 @@ function decode(input, key) {
       result += String.fromCharCode(code);
     }
   } else {
-    // 非数字密钥：每4位解析一个字符
-    for (let i = 0; i < input.length; i += 4) {
-      const hex = input.slice(i, i + 4);
+    // 非数字密钥：从十六进制+h中解析
+    const parts = input.split('h').filter(Boolean);
+    for (let hex of parts) {
       const code = parseInt(hex, 16);
       if (!isNaN(code)) {
         result += String.fromCharCode(code);
