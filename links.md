@@ -1,6 +1,7 @@
 
 - [输入法编码转换](https://mkzi-nya.github.io/IME-Converter-web/index.html)
 - [打砖块(半成品)](https://mkzi-nya.github.io/Brick-Breaker/index.html)
+- [Notanote查分器(暂废弃)](https://mkzi-nya.github.io/notanote-calculator/)
 
 ## 收藏的一些网站
 
