@@ -4,76 +4,55 @@
   <meta charset="utf-8" />
   <title>mc方块地图画</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- 你的暗色样式 -->
   <link rel="stylesheet" href="./global.css" />
-  <!-- 每个方块的 dataURL 贴图（class 名=方块名） -->
   <link rel="stylesheet" href="./image.css" />
   <style>
 /* 全局暗色模式 */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#121212!important;color:#fff!important;font-family:'PlangothicP1','PlangothicP2',sans-serif;height:100%}
+h1{font-size:1.8rem;margin:.5rem 0;color:#fff}
+.container{max-width:600px;margin:0 auto;padding:1rem}
 
-html, body {
-  background-color: #121212 !important;
-  color: #ffffff !important;
-  font-family: 'PlangothicP1', 'PlangothicP2', sans-serif;
-  height: 100%;
+/* 输入与按钮 */
+input[type="file"],input[type="number"],button{
+  background:#2a2a2a!important;color:#fff!important;border:1px solid #3a3a3a!important;
+  border-radius:4px;padding:.5rem
 }
+button:hover{background:#444!important}
 
-/* 标题 */
-h1 {
-  font-size: 1.8rem;
-  margin: 0.5rem 0;
-  color: #ffffff;
-}
-
-/* 容器 */
-.container {
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 1rem;
-}
-
-/* 输入和按钮 */
-input[type="file"],
-input[type="number"],
-button {
-  background-color: #2a2a2a !important;
-  color: #ffffff !important;
-  border: 1px solid #3a3a3a !important;
-  border-radius: 4px;
-  padding: 0.5rem;
-}
-
-button:hover {
-  background-color: #444444 !important;
-}
+/* 行/间距/弱化文字 */
+.row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+.center{justify-content:center}.mt{margin-top:.75rem}.muted{opacity:.8}
 
 /* 进度条 */
-.progress {
-  height: 10px;
-  background-color: #2a2a2a !important;
-  border: 1px solid #3a3a3a;
-  border-radius: 6px;
-  overflow: hidden;
+.progress{height:10px;background:#2a2a2a!important;border:1px solid #3a3a3a;border-radius:6px;overflow:hidden}
+.progress .bar{height:100%;width:0%;background:#666!important}
+
+/* 预览区域：限制高度，等比缩放居中显示 */
+.preview{
+  margin-top:.75rem;
+  width:100%;
+  height:360px;                 /* 预览区域的可视高度，你可按需改：比如 240px/480px */
+  background:#1e1e1e;
+  border:1px solid #3a3a3a;
+  border-radius:6px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
 }
 
-.progress .bar {
-  height: 100%;
-  width: 0%;
-  background-color: #666666 !important;
+/* 画布：等比缩放到容器内（不裁剪），像素风格显示 */
+.preview canvas{
+  max-width:100%;
+  max-height:100%;
+  width:auto!important;         /* 保持等比 */
+  height:auto!important;        /* 保持等比 */
+  image-rendering: pixelated;
+  background:#1e1e1e!important; /* 与容器一致 */
+  border:none;                  /* 外层容器已有边框 */
+  border-radius:0;
 }
-
-/* canvas */
-canvas {
-  background-color: #1e1e1e !important;
-  border: 1px solid #3a3a3a;
-  border-radius: 6px;
-}
-
   </style>
 </head>
 <body>
@@ -103,7 +82,8 @@ canvas {
         <div class="row center mt"><span id="progressText"></span></div>
       </div>
 
-      <div class="mt">
+      <!-- 新增预览容器：限制区域内按比例缩放显示 -->
+      <div class="preview">
         <canvas id="outCanvas"></canvas>
       </div>
     </section>
