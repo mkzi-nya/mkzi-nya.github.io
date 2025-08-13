@@ -3,3 +3,4 @@
 Unicode(可填数字偏移)|unicode.js
 unicode+h|unicodeh.js
 空|ks.js
+发癫|kkt.js
