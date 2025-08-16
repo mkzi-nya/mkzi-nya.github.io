@@ -531,58 +531,52 @@
     // 主页计算函数
 function calculateFromInput() {
   const keyInput = document.getElementById("keyInput");
-  let input = keyInput.value.trim().toLowerCase();
-  
-  // 只允许特定字符
-  input = input.replace(/[^espgnbm{}\[\]0123456789]/g, '');
-  
-  // 将s替换为e
-  input = input.replace(/s/g, 'e');
-  
-  // 处理{}数字重复
-  input = input.replace(/{([^}]*)}(\d+)/g, (match, content, num) => {
+  let input = keyInput.value.trim().toLowerCase()
+    .replace(/[^espgnbm{}\[\]0123456789]/g, '')
+    .replace(/s/g, 'e')
+    .replace(/{([^}]*)}(\d+)/g, (_, c, n) => c.repeat(parseInt(n)))
+    .replace(/([epgnbm])(\d+)/g, (_, l, n) => l.repeat(parseInt(n)));
+
+  input = input.replace(/\[([^\]]*)\](\d+)/g, (_, options, num) => {
     const n = parseInt(num);
-    return content.repeat(n);
-  });
-  
-  // 处理普通字母数字重复
-  input = input.replace(/([epgnbm])(\d+)/g, (match, letter, num) => {
-    const n = parseInt(num);
-    return letter.repeat(n);
-  });
-  
-  // 处理[]随机生成
-  input = input.replace(/\[([^\]]*)\](\d+)/g, (match, options, num) => {
-    const n = parseInt(num);
-    if (n <= 0) return '';
+    if (n <= 0 || !options) return '';
     
-    // 创建加权选项数组
-    const weightedOptions = [];
-    for (const char of options) {
-      weightedOptions.push(char);
+    const chars = options.split('');
+    const counts = {};
+    chars.forEach(c => counts[c] = (counts[c] || 0) + 1);
+    
+    const result = [];
+    const total = chars.length;
+    let remaining = n;
+    
+    Object.entries(counts).forEach(([char, cnt]) => {
+      const exact = (cnt / total) * n;
+      const floor = Math.floor(exact);
+      for (let i = 0; i < floor; i++) result.push(char);
+      remaining -= floor;
+    });
+
+    const charsToAdd = Object.entries(counts)
+      .sort((a, b) => (b[1]/total - a[1]/total) || chars.indexOf(a[0]) - chars.indexOf(b[0]));
+    
+    for (let i = 0; i < remaining; i++) {
+      result.push(charsToAdd[i % charsToAdd.length][0]);
     }
-    
-    // 随机选择
-    let result = '';
-    for (let i = 0; i < n; i++) {
-      const randomIndex = Math.floor(Math.random() * weightedOptions.length);
-      result += weightedOptions[randomIndex];
+
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
     }
-    
-    return result;
+
+    return result.join('');
   });
-  
-  // 只保留允许的字符
+
   const finalOutput = input.replace(/[^epgnbm]/g, '');
-  
-  // 将处理后的文本写回输入框
   keyInput.value = finalOutput;
   
   if (!finalOutput) return;
-
   const result = calculateScore(finalOutput);
-
-  // 显示结果
+  
   document.getElementById("totalNotes").innerText = `总音符数：${result.noteAmount}`;
   document.getElementById("maxCombo").innerText = `最大连击数：${result.maxCombo}`;
   document.getElementById("score").innerText = `最终得分：${result.finalScore}`;
