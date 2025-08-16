@@ -397,9 +397,12 @@
         <label for="keyInput">输入判定序列：</label>
         <textarea id="keyInput" placeholder="e/s: Exact p: Perfect g: Great n: Good b: Bad m: Miss
 输入的内容后面跟数字会重复
+定义后缀数字n=1时等同于不加,n=0时等同于没写这个运算
 小括号是重复n次计算结果
 中括号是打乱
+定义[]n=([])n
 大括号是重复计算n次并记录结果
+对于不规范字符（不属于espgnbm0123456789）的字符会直接忽略，可以随便写
 "></textarea>
         <div class="btn-group center">
           <button onclick="calculateFromInput()">计算分数</button>
