@@ -564,8 +564,9 @@ function calculateFromInput() {
   // 规则：
   //  - [content]n:
   //      * n <= 0            -> ''
-  //      * 0 < n <= len      -> 按权重随机不放回抽n个（等价：打乱content后取前n个）
-  //      * n > len           -> 使用原配比+补齐逻辑，然后打乱
+  //      * 0 < n <= len      -> 打乱content后取前n个（不放回，带权重）
+  //      * n > len           -> 令 k=floor(n/len), r=n%len：
+  //                              先拼接 content 的 k 个整副，再对 content 打乱取 r 个补齐，最后整体打乱
   //  - [content]（无数字） -> 打乱content
   const applySquareContent = (content, numStr) => {
     const chars = content.split('');
@@ -586,29 +587,21 @@ function calculateFromInput() {
       return pick.join('');
     }
 
-    // n > len：维持原“按配比 + 补齐 + 打乱”的生成
-    const counts = {};
-    chars.forEach(c => counts[c] = (counts[c] || 0) + 1);
+    // n > len：整倍 + 余数用“少于长度时”的处理
+    const k = Math.floor(n / len);
+    const r = n % len;
 
     const result = [];
-    let remaining = n;
+    // 整倍部分：直接拼接 k 个 content（保证严格配比）
+    for (let i = 0; i < k; i++) result.push(...chars);
 
-    // 先按比例下取整
-    Object.entries(counts).forEach(([char, cnt]) => {
-      const exact = (cnt / len) * n;
-      const floor = Math.floor(exact);
-      for (let i = 0; i < floor; i++) result.push(char);
-      remaining -= floor;
-    });
-
-    // 再按占比从大到小补足
-    const charsToAdd = Object.entries(counts)
-      .sort((a, b) => (b[1] / len - a[1] / len) || chars.indexOf(a[0]) - chars.indexOf(b[0]));
-    for (let i = 0; i < remaining; i++) {
-      result.push(charsToAdd[i % charsToAdd.length][0]);
+    // 余数部分：等价于“n < len”的逻辑——打乱后不放回取 r 个
+    if (r > 0) {
+      const pick = shuffleArray(chars.slice()).slice(0, r);
+      result.push(...pick);
     }
 
-    // 打乱
+    // 最后统一打乱
     shuffleArray(result);
     return result.join('');
   };
@@ -649,7 +642,7 @@ function calculateFromInput() {
     return s;
   };
 
-  // 先展开 {}，再做单字符重复，再处理 []（这样 [] 内部可包含已展开内容；{} 内也可以包含 []，因为我们之后会处理 []）
+  // 先展开 {}，再做单字符重复，再处理 []（保证 [] 内外都能正确互相作用）
   input = processNestedCurly(input)
     .replace(/([epgnbm])(\d+)/g, (_, l, n) => l.repeat(parseInt(n, 10)));
 
