@@ -396,11 +396,8 @@
       <section>
         <label for="keyInput">输入判定序列：</label>
         <textarea id="keyInput" placeholder="e/s: Exact p: Perfect g: Great n: Good b: Bad m: Miss
-输入的内容后面跟数字会重复
-小括号是重复n次计算结果
-中括号是打乱
-大括号是重复计算n次并记录结果
-"></textarea>
+输入的内容后面跟数字会重复,可以用{}重复多个内容
+用 []数字 会随机生成,可以重复[]内的内容加权"></textarea>
         <div class="btn-group center">
           <button onclick="calculateFromInput()">计算分数</button>
         </div>
