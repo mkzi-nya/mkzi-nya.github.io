@@ -413,10 +413,10 @@ espgnbm0123456789{}[]()<,>
 的字符会直接忽略，可以随便写
 <Expr> ::= <Term> <Expr> | <Term>
 <Term> ::= <Letter> <Number>?
-     | "[" <Expr> "]" <Number>?
-     | "{" <Expr> "}" <Number>?
-     | "(" <Expr> ")" <Number>?
-     | "<" <AngleContent> ">" <Number>?
+    | "[" <Expr> "]" <Number>?
+    | "{" <Expr> "}" <Number>?
+    | "(" <Expr> ")" <Number>?
+    | "<" <AngleContent> ">" <Number>?
 <Letter> ::= "e" | "p" | "g" | "n" | "b" | "m"
 <Number> ::= <Digit>+
 <Digit> ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
