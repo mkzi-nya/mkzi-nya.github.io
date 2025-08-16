@@ -533,10 +533,26 @@ function calculateFromInput() {
   const keyInput = document.getElementById("keyInput");
   let input = keyInput.value.trim().toLowerCase()
     .replace(/[^espgnbm{}\[\]0123456789]/g, '')
-    .replace(/s/g, 'e')
-    .replace(/{([^}]*)}(\d+)/g, (_, c, n) => c.repeat(parseInt(n)))
+    .replace(/s/g, 'e');
+
+  // 增强版嵌套处理
+  const processNested = (str) => {
+    // 先处理最内层无嵌套的{}
+    let result = str.replace(/{([^{}]*?)}(\d+)/g, (_, content, num) => {
+      return content.repeat(parseInt(num));
+    });
+    
+    // 如果还有嵌套，递归处理
+    if (result.includes('{')) {
+      return processNested(result);
+    }
+    return result;
+  };
+
+  input = processNested(input)
     .replace(/([epgnbm])(\d+)/g, (_, l, n) => l.repeat(parseInt(n)));
 
+  // [...] 随机生成部分保持不变
   input = input.replace(/\[([^\]]*)\](\d+)/g, (_, options, num) => {
     const n = parseInt(num);
     if (n <= 0 || !options) return '';
@@ -577,6 +593,7 @@ function calculateFromInput() {
   if (!finalOutput) return;
   const result = calculateScore(finalOutput);
   
+  // 结果显示部分保持不变
   document.getElementById("totalNotes").innerText = `总音符数：${result.noteAmount}`;
   document.getElementById("maxCombo").innerText = `最大连击数：${result.maxCombo}`;
   document.getElementById("score").innerText = `最终得分：${result.finalScore}`;
