@@ -588,7 +588,7 @@ function calculateFromInput() {
   });
 
   const finalOutput = input.replace(/[^epgnbm]/g, '');
-  keyInput.value = finalOutput;
+  //写回输入框 keyInput.value = finalOutput;
   
   if (!finalOutput) return;
   const result = calculateScore(finalOutput);
