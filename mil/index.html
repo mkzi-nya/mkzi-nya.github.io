@@ -535,7 +535,7 @@ function calculateFromInput() {
     .replace(/[^espgnbm{}\[\]0123456789]/g, '')
     .replace(/s/g, 'e');
 
-  // 工具：数组就地洗牌
+  // 工具：就地洗牌
   const shuffleArray = (arr) => {
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -544,75 +544,125 @@ function calculateFromInput() {
     return arr;
   };
 
-  // 增强版嵌套 {} 处理：
-  // 1) {x}n -> x 重复 n 次（原功能）
-  // 2) {x}  -> 如果后面没有数字，去掉花括号，仅保留 x
-  const processNested = (str) => {
+  // 处理 {}（保持原有功能 + 无数字去括号）
+  const processNestedCurly = (str) => {
     let prev;
     let cur = str;
     do {
       prev = cur;
-      // 先展开最内层 {..}n
+      // {x}n -> x重复n次（优先处理最内层）
       cur = cur.replace(/{([^{}]*?)\}(\d+)/g, (_, content, num) => {
         return content.repeat(parseInt(num, 10));
       });
-      // 再去掉没有跟数字的最内层 {..}
+      // {x}（无数字）-> 去括号保留内容
       cur = cur.replace(/{([^{}]*?)\}(?!\d)/g, (_, content) => content);
     } while (cur !== prev && cur.includes('{'));
     return cur;
   };
 
-  input = processNested(input)
-    // 单字符重复： e3 -> eee
-    .replace(/([epgnbm])(\d+)/g, (_, l, n) => l.repeat(parseInt(n, 10)));
+  // 处理 []（支持嵌套）
+  // 规则：
+  //  - [content]n:
+  //      * n <= 0            -> ''
+  //      * 0 < n <= len      -> 按权重随机不放回抽n个（等价：打乱content后取前n个）
+  //      * n > len           -> 使用原配比+补齐逻辑，然后打乱
+  //  - [content]（无数字） -> 打乱content
+  const applySquareContent = (content, numStr) => {
+    const chars = content.split('');
+    const len = chars.length;
 
-  // [...] 有数字：按原逻辑生成
-  input = input.replace(/\[([^\]]*)\](\d+)/g, (_, options, num) => {
-    const n = parseInt(num, 10);
-    if (n <= 0 || !options) return '';
+    // 无数字：仅打乱
+    if (!numStr) {
+      if (!content) return '';
+      return shuffleArray(chars).join('');
+    }
 
-    const chars = options.split('');
+    const n = parseInt(numStr, 10);
+    if (!content || isNaN(n) || n <= 0) return '';
+
+    if (n <= len) {
+      // 按权重（由出现次数体现）随机选 n 个：打乱后取前 n 个（不放回）
+      const pick = shuffleArray(chars.slice()).slice(0, n);
+      return pick.join('');
+    }
+
+    // n > len：维持原“按配比 + 补齐 + 打乱”的生成
     const counts = {};
     chars.forEach(c => counts[c] = (counts[c] || 0) + 1);
 
     const result = [];
-    const total = chars.length;
     let remaining = n;
 
+    // 先按比例下取整
     Object.entries(counts).forEach(([char, cnt]) => {
-      const exact = (cnt / total) * n;
+      const exact = (cnt / len) * n;
       const floor = Math.floor(exact);
       for (let i = 0; i < floor; i++) result.push(char);
       remaining -= floor;
     });
 
+    // 再按占比从大到小补足
     const charsToAdd = Object.entries(counts)
-      .sort((a, b) => (b[1]/total - a[1]/total) || chars.indexOf(a[0]) - chars.indexOf(b[0]));
-
+      .sort((a, b) => (b[1] / len - a[1] / len) || chars.indexOf(a[0]) - chars.indexOf(b[0]));
     for (let i = 0; i < remaining; i++) {
       result.push(charsToAdd[i % charsToAdd.length][0]);
     }
 
+    // 打乱
     shuffleArray(result);
     return result.join('');
-  });
+  };
 
-  // [...] 没数字：仅随机打乱括号内内容
-  input = input.replace(/\[([^\]]*?)\](?!\d)/g, (_, options) => {
-    if (!options) return '';
-    const arr = options.split('');
-    shuffleArray(arr);
-    return arr.join('');
-  });
+  const processNestedSquare = (str) => {
+    // 用栈找最内层 []，每处理一次就重扫，直到没有 '['
+    let s = str;
+    while (s.includes('[')) {
+      const stack = [];
+      let replaced = false;
+
+      for (let i = 0; i < s.length; i++) {
+        const ch = s[i];
+        if (ch === '[') {
+          stack.push(i);
+        } else if (ch === ']' && stack.length) {
+          const start = stack.pop();
+          const end = i;
+          const content = s.slice(start + 1, end);
+
+          // 读取紧随其后的数字（如果有）
+          let j = end + 1;
+          let numStr = '';
+          while (j < s.length && /[0-9]/.test(s[j])) {
+            numStr += s[j];
+            j++;
+          }
+
+          const replacement = applySquareContent(content, numStr);
+          s = s.slice(0, start) + replacement + s.slice(j);
+          replaced = true;
+          break; // 结构变化，重头再扫
+        }
+      }
+
+      if (!replaced) break; // 不再有可配对的 []，退出
+    }
+    return s;
+  };
+
+  // 先展开 {}，再做单字符重复，再处理 []（这样 [] 内部可包含已展开内容；{} 内也可以包含 []，因为我们之后会处理 []）
+  input = processNestedCurly(input)
+    .replace(/([epgnbm])(\d+)/g, (_, l, n) => l.repeat(parseInt(n, 10)));
+
+  input = processNestedSquare(input);
 
   const finalOutput = input.replace(/[^epgnbm]/g, '');
-  // 如需把最终串写回输入框，请取消下一行注释：
+  // 如需写回输入框：取消注释下一行
   // keyInput.value = finalOutput;
 
   if (!finalOutput) return;
   const result = calculateScore(finalOutput);
 
-  // 结果显示
+  // 展示结果
   document.getElementById("totalNotes").innerText = `总音符数：${result.noteAmount}`;
   document.getElementById("maxCombo").innerText = `最大连击数：${result.maxCombo}`;
   document.getElementById("score").innerText = `最终得分：${result.finalScore}`;
@@ -623,6 +673,7 @@ function calculateFromInput() {
   document.getElementById("bMax").innerText = `bMax值：${result.bMax}`;
   document.getElementById("result").style.display = "block";
 }
+
 
     // 谱面分析函数
     function analyzeCharts() {
