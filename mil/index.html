@@ -402,7 +402,8 @@
 中括号是随机排序内部的字符
 定义[]n=([])n
 大括号是重复计算n次并记录结果
-对于不规范字符（不属于espgnbm0123456789{}[]()）的字符会直接忽略，可以随便写
+<m>n或<a,b,c>n用于随机从m中选择n个字符或从a,b,c中选择n个字符集，当n大于内部的长度时会返回随机排列后的结果 逗号在<>之外的逗号会被判定为无效字符
+对于不规范字符（不属于espgnbm0123456789{}[]()<,>）的字符会直接忽略，可以随便写
 "></textarea>
         <div class="btn-group center">
           <button onclick="calculateFromInput()">计算分数</button>
@@ -535,153 +536,159 @@
     }
 
     // 主页计算函数
-function calculateFromInput() {
-  const keyInput = document.getElementById("keyInput");
-  let raw = keyInput.value || "";
-  let input = raw.trim().toLowerCase()
-    // 允许 epgnbm 与 三种括号 和 数字
-    .replace(/[^espgnbm{}\[\]\(\)0-9s]/g, '')
-    // s 等价于 e
-    .replace(/s/g, 'e');
+    function calculateFromInput() {
+      const keyInput = document.getElementById("keyInput");
+      let raw = keyInput.value || "";
 
-  // Fisher-Yates 洗牌
-  const shuffleArray = (arr) => {
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  };
+      // 去掉 <...> 外的逗号
+      let temp = "";
+      let inAngle = false;
+      for (let ch of raw) {
+        if (ch === "<") inAngle = true;
+        if (ch === ">") inAngle = false;
+        if (ch === "," && !inAngle) continue;
+        temp += ch;
+      }
 
-  // 展开单字母重复（n=0 => 丢弃）
-  const expandLetters = (str) => {
-    return str.replace(/([epgnbm])(\d+)/g, (_, ch, num) => {
-      const n = parseInt(num, 10) || 0;
-      if (n <= 0) return '';
-      return ch.repeat(n);
-    });
-  };
+      // 基础过滤
+      let input = temp.trim().toLowerCase()
+        .replace(/[^espgnbm{}\[\]\(\)<>0-9,]/g, '') // 允许 , 仅在 <> 内有效
+        .replace(/s/g, 'e');
 
-  // 主处理：支持 {}, [], () 三种括号的嵌套与交叉
-  const processAll = (str) => {
-    // 循环，直到没有任何括号可处理
-    while (/[{\[\(]/.test(str)) {
-      let stack = [];
-      let replaced = false;
-
-      for (let i = 0; i < str.length; i++) {
-        const ch = str[i];
-
-        if (ch === '{' || ch === '[' || ch === '(') {
-          stack.push({ type: ch, idx: i });
-        } else if (ch === '}' || ch === ']' || ch === ')') {
-          if (!stack.length) continue;
-          const top = stack[stack.length - 1];
-          // 匹配同型括号
-          if ((top.type === '{' && ch === '}') ||
-              (top.type === '[' && ch === ']') ||
-              (top.type === '(' && ch === ')')) {
-
-            stack.pop();
-            const start = top.idx;
-            const end   = i;
-            const inner = str.slice(start + 1, end);
-
-            // 读取紧随其后的数字（可为空）
-            let j = end + 1;
-            let numStr = '';
-            while (j < str.length && /[0-9]/.test(str[j])) {
-              numStr += str[j];
-              j++;
-            }
-            const hasNum = numStr.length > 0;
-            const n = hasNum ? parseInt(numStr, 10) : undefined;
-
-            // n=0，直接忽略该块
-            if (hasNum && n === 0) {
-              str = str.slice(0, start) + '' + str.slice(j);
-              replaced = true;
-              break;
-            }
-
-            // 先把内部内容“完整计算”出来（递归）
-            // 注意：{} 的“重复计算”规则在这里实现，因此对 {} 不在这里预先展开，
-            // 而是按需要多次调用 processAll(inner)。
-            let replacement = '';
-
-            if (top.type === '[') {
-              // []/[]n：随机排列一次，然后（若有 n）重复该次结果 n 次
-              const evaluated = processAll(inner);                // 先把内部都算完
-              const shuffledOnce = shuffleArray(evaluated.split('')).join('');
-              if (!hasNum) {
-                replacement = shuffledOnce;                       // 无 n：打乱一次
-              } else {
-                // n>0 在上面已过滤 n=0
-                replacement = shuffledOnce.repeat(n);
-              }
-
-            } else if (top.type === '(') {
-              // ()n：不重复计算，先算一次，再重复 n 次；无 n：等价一次
-              const evaluatedOnce = processAll(inner);
-              if (!hasNum) {
-                replacement = evaluatedOnce;
-              } else {
-                replacement = evaluatedOnce.repeat(n);
-              }
-
-            } else if (top.type === '{') {
-              // {}n：重复计算 n 次；无 n：等价 n=1
-              const times = hasNum ? n : 1;
-              let out = '';
-              for (let t = 0; t < times; t++) {
-                // 每次都重新完整计算一次
-                out += processAll(inner);
-              }
-              replacement = out;
-            }
-
-            // 替换，并从头再扫
-            str = str.slice(0, start) + replacement + str.slice(j);
-            replaced = true;
-            break;
-          }
+      // 洗牌工具
+      const shuffleArray = (arr) => {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
         }
-      }
+        return arr;
+      };
 
-      if (!replaced) {
-        // 没有更多可配对的括号，跳出
-        break;
-      }
+      // 展开单字母重复
+      const expandLetters = (str) => {
+        return str.replace(/([epgnbm])(\d+)/g, (_, ch, num) => {
+          const n = parseInt(num, 10) || 0;
+          if (n <= 0) return '';
+          return ch.repeat(n);
+        });
+      };
+
+      // 主解析处理
+      const processAll = (str) => {
+        while (/[{\[\(<]/.test(str)) {
+          let stack = [];
+          let replaced = false;
+
+          for (let i = 0; i < str.length; i++) {
+            const ch = str[i];
+
+            if (ch === '{' || ch === '[' || ch === '(' || ch === '<') {
+              stack.push({ type: ch, idx: i });
+            } else if (ch === '}' || ch === ']' || ch === ')' || ch === '>') {
+              if (!stack.length) continue;
+              const top = stack[stack.length - 1];
+              if ((top.type === '{' && ch === '}') ||
+                (top.type === '[' && ch === ']') ||
+                (top.type === '(' && ch === ')') ||
+                (top.type === '<' && ch === '>')) {
+
+                stack.pop();
+                const start = top.idx;
+                const end = i;
+                const inner = str.slice(start + 1, end);
+
+                // 数字
+                let j = end + 1;
+                let numStr = '';
+                while (j < str.length && /[0-9]/.test(str[j])) {
+                  numStr += str[j];
+                  j++;
+                }
+                const hasNum = numStr.length > 0;
+                const n = hasNum ? parseInt(numStr, 10) : 1;
+
+                // n=0 忽略
+                if (n === 0) {
+                  str = str.slice(0, start) + '' + str.slice(j);
+                  replaced = true;
+                  break;
+                }
+
+                let replacement = '';
+
+                if (top.type === '[') {
+                  const evaluated = processAll(inner);
+                  const shuffled = shuffleArray(evaluated.split('')).join('');
+                  replacement = shuffled.repeat(n);
+
+                } else if (top.type === '(') {
+                  const evaluatedOnce = processAll(inner);
+                  replacement = evaluatedOnce.repeat(n);
+
+                } else if (top.type === '{') {
+                  let out = '';
+                  for (let t = 0; t < n; t++) {
+                    out += processAll(inner);
+                  }
+                  replacement = out;
+
+                } else if (top.type === '<') {
+                  if (inner.includes(',')) {
+                    // 列表模式
+                    const items = inner.split(',').map(x => x);
+                    if (n <= items.length) {
+                      // 随机选 n 个不同项
+                      const pool = shuffleArray(items.slice()).slice(0, n);
+                      replacement = pool.join('');
+                    } else {
+                      // 大于长度 → 打乱全部
+                      replacement = shuffleArray(items.slice()).join('');
+                    }
+                  } else {
+                    // 单字符模式
+                    const chars = inner.split('');
+                    if (n <= chars.length) {
+                      let pool = '';
+                      for (let t = 0; t < n; t++) {
+                        pool += chars[Math.floor(Math.random() * chars.length)];
+                      }
+                      replacement = pool;
+                    } else {
+                      replacement = shuffleArray(chars.slice()).join('');
+                    }
+                  }
+                }
+
+                str = str.slice(0, start) + replacement + str.slice(j);
+                replaced = true;
+                break;
+              }
+            }
+          }
+
+          if (!replaced) break;
+        }
+
+        str = expandLetters(str);
+        return str;
+      };
+
+      let expanded = processAll(input);
+      const finalOutput = expanded.replace(/[^epgnbm]/g, '');
+
+      if (!finalOutput) return;
+      const result = calculateScore(finalOutput);
+
+      document.getElementById("totalNotes").innerText = `总音符数：${result.noteAmount}`;
+      document.getElementById("maxCombo").innerText = `最大连击数：${result.maxCombo}`;
+      document.getElementById("score").innerText = `最终得分：${result.finalScore}`;
+      document.getElementById("detail").innerText = `各判定数量：e:${result.counts.e}, p:${result.counts.p}, g:${result.counts.g}, n:${result.counts.n}, b:${result.counts.b}, m:${result.counts.m}`;
+      document.getElementById("comboMult").innerText = `连击倍率：${result.comboMult.toFixed(4)}`;
+      document.getElementById("totalAccScore").innerText = `总准度分：${result.totalAccScore}`;
+      document.getElementById("totalComboScore").innerText = `总连击分：${result.totalComboScore}`;
+      document.getElementById("bMax").innerText = `bMax值：${result.bMax}`;
+      document.getElementById("result").style.display = "block";
     }
-
-    // 最后处理单字母重复（包括最外层与任何未在内层展开的）
-    str = expandLetters(str);
-    return str;
-  };
-
-  // 进行完整处理
-  let expanded = processAll(input);
-
-  // 清理：只保留六个字母用于计分
-  const finalOutput = expanded.replace(/[^epgnbm]/g, '');
-
-  // 如需把最终串写回输入框，取消下一行注释
-  // keyInput.value = finalOutput;
-
-  if (!finalOutput) return;
-  const result = calculateScore(finalOutput);
-
-  // 结果显示
-  document.getElementById("totalNotes").innerText = `总音符数：${result.noteAmount}`;
-  document.getElementById("maxCombo").innerText = `最大连击数：${result.maxCombo}`;
-  document.getElementById("score").innerText = `最终得分：${result.finalScore}`;
-  document.getElementById("detail").innerText = `各判定数量：e:${result.counts.e}, p:${result.counts.p}, g:${result.counts.g}, n:${result.counts.n}, b:${result.counts.b}, m:${result.counts.m}`;
-  document.getElementById("comboMult").innerText = `连击倍率：${result.comboMult.toFixed(4)}`;
-  document.getElementById("totalAccScore").innerText = `总准度分：${result.totalAccScore}`;
-  document.getElementById("totalComboScore").innerText = `总连击分：${result.totalComboScore}`;
-  document.getElementById("bMax").innerText = `bMax值：${result.bMax}`;
-  document.getElementById("result").style.display = "block";
-}
 
 
 
