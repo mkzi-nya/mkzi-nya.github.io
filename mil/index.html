@@ -395,7 +395,9 @@
     <div id="home" class="tab-content active">
       <section>
         <label for="keyInput">输入判定序列：</label>
-        <textarea id="keyInput" placeholder="e: Exact p: Perfect g: Great n: Good b: Bad m: Miss"></textarea>
+        <textarea id="keyInput" placeholder="e/s: Exact p: Perfect g: Great n: Good b: Bad m: Miss
+输入的内容后面跟数字会重复,可以用{}重复多个内容
+用 []数字 会随机生成,可以重复[]内的内容加权"></textarea>
         <div class="btn-group center">
           <button onclick="calculateFromInput()">计算分数</button>
         </div>
@@ -462,7 +464,6 @@
   <script>
     // 核心计算函数
     function calculateScore(input) {
-      input = input.toLowerCase();
       const noteAmount = input.length;
       const bMax = Math.min(192, Math.max(Math.floor(noteAmount * 12 / 50), 1));
       const params = {
@@ -528,24 +529,70 @@
     }
 
     // 主页计算函数
-    function calculateFromInput() {
-      const input = document.getElementById("keyInput").value.trim();
-      if (!input) return;
-
-      const result = calculateScore(input);
-
-      // 显示结果
-      document.getElementById("totalNotes").innerText = `总音符数：${result.noteAmount}`;
-      document.getElementById("maxCombo").innerText = `最大连击数：${result.maxCombo}`;
-      document.getElementById("score").innerText = `最终得分：${result.finalScore}`;
-      document.getElementById("detail").innerText = `各判定数量：e:${result.counts.e}, p:${result.counts.p}, g:${result.counts.g}, n:${result.counts.n}, b:${result.counts.b}, m:${result.counts.m}`;
-      document.getElementById("comboMult").innerText = `连击倍率：${result.comboMult.toFixed(4)}`;
-      document.getElementById("totalAccScore").innerText = `总准度分：${result.totalAccScore}`;
-      document.getElementById("totalComboScore").innerText = `总连击分：${result.totalComboScore}`;
-      document.getElementById("bMax").innerText = `bMax值：${result.bMax}`;
-      document.getElementById("result").style.display = "block";
+function calculateFromInput() {
+  const keyInput = document.getElementById("keyInput");
+  let input = keyInput.value.trim().toLowerCase();
+  
+  // 只允许特定字符
+  input = input.replace(/[^espgnbm{}\[\]0123456789]/g, '');
+  
+  // 将s替换为e
+  input = input.replace(/s/g, 'e');
+  
+  // 处理{}数字重复
+  input = input.replace(/{([^}]*)}(\d+)/g, (match, content, num) => {
+    const n = parseInt(num);
+    return content.repeat(n);
+  });
+  
+  // 处理普通字母数字重复
+  input = input.replace(/([epgnbm])(\d+)/g, (match, letter, num) => {
+    const n = parseInt(num);
+    return letter.repeat(n);
+  });
+  
+  // 处理[]随机生成
+  input = input.replace(/\[([^\]]*)\](\d+)/g, (match, options, num) => {
+    const n = parseInt(num);
+    if (n <= 0) return '';
+    
+    // 创建加权选项数组
+    const weightedOptions = [];
+    for (const char of options) {
+      weightedOptions.push(char);
     }
+    
+    // 随机选择
+    let result = '';
+    for (let i = 0; i < n; i++) {
+      const randomIndex = Math.floor(Math.random() * weightedOptions.length);
+      result += weightedOptions[randomIndex];
+    }
+    
+    return result;
+  });
+  
+  // 只保留允许的字符
+  const finalOutput = input.replace(/[^epgnbm]/g, '');
+  
+  // 将处理后的文本写回输入框
+  keyInput.value = finalOutput;
+  
+  if (!finalOutput) return;
 
+  const result = calculateScore(finalOutput);
+
+  // 显示结果
+  document.getElementById("totalNotes").innerText = `总音符数：${result.noteAmount}`;
+  document.getElementById("maxCombo").innerText = `最大连击数：${result.maxCombo}`;
+  document.getElementById("score").innerText = `最终得分：${result.finalScore}`;
+  document.getElementById("detail").innerText = `各判定数量：e:${result.counts.e}, p:${result.counts.p}, g:${result.counts.g}, n:${result.counts.n}, b:${result.counts.b}, m:${result.counts.m}`;
+  document.getElementById("comboMult").innerText = `连击倍率：${result.comboMult.toFixed(4)}`;
+  document.getElementById("totalAccScore").innerText = `总准度分：${result.totalAccScore}`;
+  document.getElementById("totalComboScore").innerText = `总连击分：${result.totalComboScore}`;
+  document.getElementById("bMax").innerText = `bMax值：${result.bMax}`;
+  document.getElementById("result").style.display = "block";
+}
     // 谱面分析函数
     function analyzeCharts() {
       // 获取输入框的值
