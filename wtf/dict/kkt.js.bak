@@ -1,0 +1,67 @@
+// 与 Python 版本一致的 codebook
+const codebook = ['看看腿', '看看手', '看看女装', '看看黑丝', '看看白丝', '看看~', '看看嘛~', '草我', '超我', '喵', '主人~', '主人草饲我~', '草饲我', '❤', '我喜欢你', '跟我做爱'];
+
+/**
+ * 编码函数
+ * 将字符串转为 UTF-8 字节数组 -> 每个字节拆成高4位/低4位 -> 映射到 codebook
+ */
+function encode(input) {
+  const encoder = new TextEncoder();        // 浏览器原生 UTF-8 编码
+  const bytes = encoder.encode(input);
+  let encoded = '';
+
+  for (let byte of bytes) {
+    const high = (byte >> 4) & 0x0F;
+    const low = byte & 0x0F;
+    encoded += codebook[high] + codebook[low];
+  }
+
+  return encoded;
+}
+
+/**
+ * 解码函数
+ * 将 codebook 字符转回 4位 -> 组合成字节 -> 转 UTF-8 字符串
+ */
+function decode(input) {
+  // 创建反向映射
+  const codebookMap = {};
+  codebook.forEach((char, index) => {
+    codebookMap[char] = index;
+  });
+
+  const bytes = [];
+  let i = 0;
+
+  while (i < input.length) {
+    let found = false;
+
+    // 尝试匹配最长的 codebook 字符
+    for (let length = Math.max(...codebook.map(item => item.length)); length > 0; length--) {
+      const subStr = input.substring(i, i + length);
+      const high = codebookMap[subStr];
+
+      if (high !== undefined) {
+        bytes.push(high);
+        i += length;
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      // 如果没有匹配到任何字符，跳过（这可能表示无效字符或错误的编码）
+      console.warn(`Unknown codebook pair at position ${i}: ${input.substring(i, i + 1)}`);
+      i += 1; // 跳过当前字符继续解码
+    }
+  }
+
+  // 将字节组合成 UTF-8 字符串
+  const decodedBytes = [];
+  for (let byte of bytes) {
+    decodedBytes.push(byte);
+  }
+
+  const decoder = new TextDecoder('utf-8');
+  return decoder.decode(new Uint8Array(decodedBytes));
+}

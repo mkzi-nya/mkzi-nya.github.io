@@ -1,0 +1,452 @@
+/* any-image：图片→方块拼贴图（前端版）
+ * 需要：
+ *   - ./out_all_colours.json：颜色表（key 与 image.css 的类名一致）
+ *   - ./image.css：每个方块类里有 background-image: url(data:...)
+ * 建议用本地服务器打开（例如：python -m http.server）
+ */
+
+(function () {
+  const el = (id)=>document.getElementById(id);
+  const fileInput   = el('fileInput');
+  const scaleInput  = el('scaleInput');
+  const runBtn      = el('runBtn');
+  const stopBtn     = el('stopBtn');
+  const dlBtn       = el('downloadBtn');
+  const canvas      = el('outCanvas');
+  const previewImg  = el('previewImg');
+  const pWrap       = el('progressWrap');
+  const pBar        = el('progressBar');
+  const pText       = el('progressText');
+  const origResEl   = el('origRes');
+  const outResEl    = el('outRes');
+
+  const SIDE = 'top';
+  const COLOR_SET = 'Linear Average';
+  const MAX_TILE_SIZE = 2048; // 最大图块尺寸
+
+  let cancelFlag = false;
+  let lastInputImage = null;        // Image 对象
+  let lastInputFileName = '';       // 原始文件名（用于下载命名）
+  let lastComputedOut = { w:0, h:0 };
+  let processingState = {           // 处理状态保存
+    x: 0,
+    y: 0,
+    gridW: 0,
+    gridH: 0,
+    pixelsDone: 0,
+    totalPixels: 0,
+    tiles: []                     // 存储所有图块
+  };
+
+  function fmtTime(ms){
+    const s = Math.max(0, Math.round(ms/1000));
+    const hh = Math.floor(s/3600);
+    const mm = Math.floor((s%3600)/60);
+    const ss = s%60;
+    return (hh>0 ? String(hh).padStart(2,'0')+':' : '') +
+           String(mm).padStart(2,'0')+':' +
+           String(ss).padStart(2,'0');
+  }
+
+  function setProgress(pixelsDone, totalPixels, startTs){
+    const pct = totalPixels ? (pixelsDone/totalPixels)*100 : 0;
+    pBar.style.width = `${Math.min(100, pct)}%`;
+    const elapsed = performance.now() - startTs;
+    const eta = (pixelsDone>0) ? elapsed*(totalPixels-pixelsDone)/pixelsDone : 0;
+    pText.textContent =
+      `进度 ${Math.floor(pct)}% ｜ 已用 ${fmtTime(elapsed)} ｜ 剩余 ${fmtTime(eta)} ｜ 像素 ${pixelsDone}/${totalPixels}`;
+  }
+
+  async function loadColours(){
+    const res = await fetch('./out_all_colours.json');
+    if(!res.ok) throw new Error('out_all_colours.json 加载失败');
+    const obj = await res.json();
+    return Object.entries(obj).map(([key, sides]) => ({key, sides}));
+  }
+
+  function loadTexturesFromCSS(){
+    const textures = new Map();
+    for(const sheet of document.styleSheets){
+      let rules; try{ rules=sheet.cssRules; }catch{ continue; }
+      if(!rules) continue;
+      for(const rule of rules){
+        if(!(rule.selectorText && rule.style && rule.style.backgroundImage)) continue;
+        const sel = rule.selectorText.trim();
+        if(!sel.startsWith('.')) continue;
+        const m = rule.style.backgroundImage.match(/url\(['"]?(data:[^'")]+)['"]?\)/i);
+        if(!m) continue;
+        const className = sel.slice(1).split(/[ ,:.#\[]/,1)[0];
+        const url = m[1];
+        const img = new Image();
+        img.src = url;
+        textures.set(className, img);
+      }
+    }
+    return textures;
+  }
+
+  function waitImagesReady(images){
+    const tasks=[];
+    for(const img of images){
+      if(img.complete && img.naturalWidth) continue;
+      tasks.push(new Promise((res,rej)=>{ img.onload=()=>res(); img.onerror=()=>rej(new Error('贴图解码失败')); }));
+    }
+    return Promise.all(tasks);
+  }
+
+  function readFileAsImage(file){
+    return new Promise((resolve,reject)=>{
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = ()=>resolve(img);
+      img.onerror = ()=>reject(new Error('图片读取失败'));
+      img.src = url;
+    });
+  }
+
+  function downsampleToPixels(img, tileStep){
+    const w2 = Math.ceil(img.width / tileStep);
+    const h2 = Math.ceil(img.height / tileStep);
+    const cnv = document.createElement('canvas');
+    cnv.width = w2; cnv.height = h2;
+    const ctx = cnv.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0, w2, h2);
+    const data = ctx.getImageData(0, 0, w2, h2).data;
+    return {w:w2, h:h2, data};
+  }
+
+  function colorDiffAbs(pix, col){
+    const r=Math.abs((pix[0]|0)-(col[0]|0));
+    const g=Math.abs((pix[1]|0)-(col[1]|0));
+    const b=Math.abs((pix[2]|0)-(col[2]|0));
+    const a=Math.abs(((pix[3]??255)|0)-((col[3]??255)|0));
+    return r+g+b+a;
+  }
+
+  function getScale(){
+    let s = parseFloat(scaleInput.value);
+    if(!(s>0)) s = 4;
+    return Math.min(s, 16); // 限制最大值为16
+  }
+
+  function tileFromScale(scale){
+    return Math.max(1, Math.round(16/scale));
+  }
+
+  function updateResLabels(){
+    if(!lastInputImage){
+      origResEl.textContent = '原图：-';
+      outResEl.textContent  = '输出：-';
+      return;
+    }
+    const scale = getScale();
+    const tileStep = tileFromScale(scale);
+    const gridW = Math.ceil(lastInputImage.width / tileStep);
+    const gridH = Math.ceil(lastInputImage.height / tileStep);
+    const outW = gridW * 16;
+    const outH = gridH * 16;
+    lastComputedOut = { w: outW, h: outH };
+    origResEl.textContent = `原图：${lastInputImage.width}×${lastInputImage.height}`;
+    outResEl .textContent = `输出：${outW}×${outH}`;
+  }
+
+  // 选择文件后：读原图并显示分辨率
+  fileInput.addEventListener('change', async ()=>{
+    const f = fileInput.files && fileInput.files[0];
+    if(!f){ 
+      lastInputImage=null; 
+      lastInputFileName=''; 
+      previewImg.style.display = 'none';
+      updateResLabels(); 
+      return; 
+    }
+    try{
+      const img = await readFileAsImage(f);
+      
+      // 创建预览图（限制尺寸）
+      const maxSize = 2048;
+      let displayWidth = img.width;
+      let displayHeight = img.height;
+      
+      if (img.width > maxSize || img.height > maxSize) {
+        const ratio = Math.min(maxSize / img.width, maxSize / img.height);
+        displayWidth = Math.floor(img.width * ratio);
+        displayHeight = Math.floor(img.height * ratio);
+      }
+      
+      // 创建预览canvas
+      const previewCanvas = document.createElement('canvas');
+      previewCanvas.width = displayWidth;
+      previewCanvas.height = displayHeight;
+      const ctx = previewCanvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
+      
+      // 显示预览图
+      previewImg.src = previewCanvas.toDataURL('image/png');
+      previewImg.style.display = 'block';
+      previewImg.width = displayWidth;
+      previewImg.height = displayHeight;
+      
+      lastInputImage = img;
+      lastInputFileName = f.name || 'image';
+      updateResLabels();
+    }catch(e){
+      console.error(e);
+      lastInputImage=null; 
+      lastInputFileName='';
+      previewImg.style.display = 'none';
+      updateResLabels();
+      alert('图片加载失败: ' + e.message);
+    }
+  });
+
+  // 倍数变化时，实时更新"输出分辨率"并限制最大值
+  scaleInput.addEventListener('input', ()=>{
+    let val = parseFloat(scaleInput.value);
+    if (!isNaN(val) && val > 16) {
+      scaleInput.value = 16;
+    }
+    updateResLabels();
+  });
+
+  function setRunningUI(running){
+    fileInput.disabled = running;
+    scaleInput.disabled = running;
+    runBtn.disabled = running;
+    stopBtn.disabled = !running;
+    dlBtn.disabled = false; // 允许任何时候下载
+    pWrap.style.display = 'block';
+  }
+
+  // 创建图块
+  function createTile(width, height) {
+    const tile = document.createElement('canvas');
+    tile.width = width;
+    tile.height = height;
+    return {
+      canvas: tile,
+      ctx: tile.getContext('2d'),
+      x: 0,
+      y: 0,
+      width,
+      height
+    };
+  }
+
+  // 拼接所有图块到主画布
+  function assembleTilesToCanvas() {
+    if (processingState.tiles.length === 0) return;
+    
+    // 设置主画布尺寸
+    const outW = processingState.gridW * 16;
+    const outH = processingState.gridH * 16;
+    canvas.width = outW;
+    canvas.height = outH;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, outW, outH);
+    
+    // 拼接所有图块
+    for (const tile of processingState.tiles) {
+      ctx.drawImage(tile.canvas, tile.x, tile.y);
+    }
+  }
+
+  async function run(){
+    const f = fileInput.files && fileInput.files[0];
+    if(!f){ alert('请选择图片'); return; }
+
+    // 预加载色板与贴图
+    const [blocksList, textures] = await Promise.all([loadColours(), Promise.resolve(loadTexturesFromCSS())]);
+    const entries = [];
+    for(const b of blocksList){
+      const side = b.sides[SIDE];
+      if(!side || !side.color || !side.color[COLOR_SET]) continue;
+      const img = textures.get(b.key);
+      if(!img) continue;
+      entries.push({ key: b.key, color: side.color[COLOR_SET], img });
+    }
+    await waitImagesReady(entries.map(e=>e.img));
+
+    // 读取输入图
+    const srcImg = lastInputImage || await readFileAsImage(f);
+    lastInputImage = srcImg;
+    lastInputFileName = f.name || 'image';
+    updateResLabels();
+
+    // 参数
+    const scale = getScale();
+    const tileStep = tileFromScale(scale);
+
+    // 生成低分辨率网格像素
+    const {w:gridW, h:gridH, data} = downsampleToPixels(srcImg, tileStep);
+    processingState.gridW = gridW;
+    processingState.gridH = gridH;
+    processingState.totalPixels = gridW * gridH;
+
+    // 如果是新任务，重置状态
+    if (!cancelFlag) {
+      processingState.x = 0;
+      processingState.y = 0;
+      processingState.pixelsDone = 0;
+      processingState.tiles = []; // 清除旧图块
+    } else {
+      cancelFlag = false;
+    }
+
+    // 创建主画布
+    const outW = gridW * 16;
+    const outH = gridH * 16;
+    canvas.width = outW;
+    canvas.height = outH;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,outW,outH);
+
+    // 进度初始化
+    setRunningUI(true);
+    const startTs = performance.now();
+    
+    // 计算更新阈值
+    const updateThreshold = Math.min(
+      Math.ceil(processingState.totalPixels * 0.01), 
+      5000000 // 500万像素
+    );
+    
+    // 颜色匹配函数
+    const pickBlock = (r,g,b,a)=>{
+      let best=1e15, bestIdx=-1;
+      for(let i=0;i<entries.length;i++){
+        const d = colorDiffAbs([r,g,b,a], entries[i].color);
+        if(d<best){ best=d; bestIdx=i; }
+      }
+      return entries[bestIdx];
+    };
+
+    // 像素索引辅助
+    const idx = (x,y)=> (y*gridW + x) * 4;
+
+    // 计算需要多少个图块
+    const tilesX = Math.ceil(outW / MAX_TILE_SIZE);
+    const tilesY = Math.ceil(outH / MAX_TILE_SIZE);
+    
+    // 初始化图块
+    if (processingState.tiles.length === 0) {
+      for (let ty = 0; ty < tilesY; ty++) {
+        for (let tx = 0; tx < tilesX; tx++) {
+          const tileWidth = Math.min(MAX_TILE_SIZE, outW - tx * MAX_TILE_SIZE);
+          const tileHeight = Math.min(MAX_TILE_SIZE, outH - ty * MAX_TILE_SIZE);
+          
+          const tile = createTile(tileWidth, tileHeight);
+          tile.x = tx * MAX_TILE_SIZE;
+          tile.y = ty * MAX_TILE_SIZE;
+          processingState.tiles.push(tile);
+        }
+      }
+    }
+
+    // 从保存的状态继续
+    let lastUpdate = processingState.pixelsDone;
+    
+    // 遍历所有像素
+    for (let y = processingState.y; y < gridH; y++) {
+      for (let x = (y === processingState.y) ? processingState.x : 0; x < gridW; x++) {
+        if (cancelFlag) {
+          // 保存当前状态
+          processingState.x = x;
+          processingState.y = y;
+          break;
+        }
+        
+        const p = idx(x, y);
+        const r = data[p], g = data[p + 1], b = data[p + 2], a = data[p + 3];
+        
+        if (a > 10) {
+          const e = pickBlock(r, g, b, a);
+          if (e) {
+            // 计算像素在最终画布上的位置
+            const pixelX = x * 16;
+            const pixelY = y * 16;
+            
+            // 找到对应的图块
+            const tileX = Math.floor(pixelX / MAX_TILE_SIZE);
+            const tileY = Math.floor(pixelY / MAX_TILE_SIZE);
+            const tileIndex = tileY * tilesX + tileX;
+            
+            if (tileIndex < processingState.tiles.length) {
+              const tile = processingState.tiles[tileIndex];
+              // 计算在图块内的位置
+              const tilePixelX = pixelX - tile.x;
+              const tilePixelY = pixelY - tile.y;
+              
+              // 在图块上绘制
+              tile.ctx.drawImage(e.img, tilePixelX, tilePixelY, 16, 16);
+            }
+          }
+        }
+        
+        processingState.pixelsDone++;
+        
+        // 按阈值更新进度
+        if (processingState.pixelsDone - lastUpdate >= updateThreshold || 
+            processingState.pixelsDone === processingState.totalPixels) {
+          setProgress(processingState.pixelsDone, processingState.totalPixels, startTs);
+          lastUpdate = processingState.pixelsDone;
+          
+          // 小让步给UI
+          await new Promise(r => setTimeout(r, 0));
+        }
+      }
+      
+      // 重置列索引（下一行从0开始）
+      processingState.x = 0;
+      
+      // 每完成一行就拼接到主画布
+      if (y % 10 === 0 || y === gridH - 1) {
+        assembleTilesToCanvas();
+      }
+    }
+
+    if (cancelFlag) {
+      pText.textContent = '已停止';
+      // 即使停止也拼接到主画布
+      assembleTilesToCanvas();
+    } else {
+      // 完成处理
+      setProgress(processingState.totalPixels, processingState.totalPixels, startTs);
+    }
+    
+    setRunningUI(false);
+    dlBtn.disabled = false;
+  }
+
+  function stop(){
+    cancelFlag = true;
+  }
+
+  function downloadPNG(){
+    // 确保所有图块已拼接到主画布
+    assembleTilesToCanvas();
+    
+    const base = (lastInputFileName || 'image').replace(/\.[^.]+$/,'');
+    const ts = new Date();
+    const pad = (n)=>String(n).padStart(2,'0');
+    const stamp = `${String(ts.getFullYear()).slice(2)}_${pad(ts.getMonth()+1)}_${pad(ts.getDate())}-${pad(ts.getHours())}_${pad(ts.getMinutes())}_${pad(ts.getSeconds())}`;
+    const fname = `${base}_${stamp}.png`;
+
+    canvas.toBlob((blob)=>{
+      if(!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  }
+
+  runBtn.addEventListener('click', ()=>run().catch(e=>{
+    console.error(e);
+    pText.textContent = '出错：' + (e?.message || e);
+    setRunningUI(false);
+  }));
+  stopBtn.addEventListener('click', stop);
+  dlBtn.addEventListener('click', downloadPNG);
+})();

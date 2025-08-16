@@ -114,6 +114,25 @@ button:hover {
   text-align: center;
 }
 
+@font-face {
+  font-family: 'PlangothicP1';
+  src: url('./Plangothic-Web-V2.9.5779/PlangothicP1-Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PlangothicP2';
+  src: url('./Plangothic-Web-V2.9.5779/PlangothicP2-Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+html, body {
+  font-family: 'PlangothicP1', 'PlangothicP2', sans-serif;
+}
 /* 密钥输入框样式 */
 #keyInput {
   width: 100%;

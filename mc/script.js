@@ -1,74 +1,117 @@
-/* any-image：图片→方块拼贴图（前端版）
- * 需要：
- *   - ./out_all_colours.json：颜色表（key 与 image.css 的类名一致）
- *   - ./image.css：每个方块类里有 background-image: url(data:...)
- * 建议用本地服务器打开（例如：python -m http.server）
- */
-
+/* 优化版：图片→方块拼贴图（支持大图片处理） */
 (function () {
-  const el = (id)=>document.getElementById(id);
-  const fileInput   = el('fileInput');
-  const scaleInput  = el('scaleInput');
-  const runBtn      = el('runBtn');
-  const stopBtn     = el('stopBtn');
-  const dlBtn       = el('downloadBtn');
-  const canvas      = el('outCanvas');
-  const pWrap       = el('progressWrap');
-  const pBar        = el('progressBar');
-  const pText       = el('progressText');
-  const origResEl   = el('origRes');
-  const outResEl    = el('outRes');
+  const el = (id) => document.getElementById(id);
+  const fileInput = el('fileInput');
+  const scaleInput = el('scaleInput');
+  const runBtn = el('runBtn');
+  const pauseBtn = el('pauseBtn');
+  const dlBtn = el('downloadBtn');
+  const previewImg = el('previewImg');
+  const previewStatus = el('previewStatus');
+  const pWrap = el('progressWrap');
+  const pBar = el('progressBar');
+  const pText = el('progressText');
+  const origResEl = el('origRes');
+  const outResEl = el('outRes');
+  const statusText = el('statusText');
 
   const SIDE = 'top';
   const COLOR_SET = 'Linear Average';
+  const TILE_SIZE = 256; // 分块大小（像素）
+  const MAX_WORKERS = 4; // 最大Web Worker数量
 
   let cancelFlag = false;
-  let lastInputImage = null;        // Image 对象
-  let lastInputFileName = '';       // 原始文件名（用于下载命名）
-  let lastComputedOut = { w:0, h:0 };
+  let lastInputImage = null;
+  let lastInputFileName = '';
+  let workerPool = [];
+  let activeWorkers = 0;
+  let completedWorkers = 0;
+  
+  // 处理状态
+  const processingState = {
+    scale: 4,
+    tileStep: 4,
+    gridW: 0,
+    gridH: 0,
+    outW: 0,
+    outH: 0,
+    tilesDone: 0,
+    totalTiles: 0,
+    pixelsDone: 0,
+    totalPixels: 0,
+    blocks: [],
+    textures: new Map(),
+    tileMap: new Map(),
+    startTs: 0,
+    blocksList: []
+  };
 
-  function fmtTime(ms){
-    const s = Math.max(0, Math.round(ms/1000));
-    const hh = Math.floor(s/3600);
-    const mm = Math.floor((s%3600)/60);
-    const ss = s%60;
-    return (hh>0 ? String(hh).padStart(2,'0')+':' : '') +
-           String(mm).padStart(2,'0')+':' +
-           String(ss).padStart(2,'0');
+  // 初始化Web Worker池
+  function initWorkerPool() {
+    for (let i = 0; i < MAX_WORKERS; i++) {
+      const worker = new Worker(workerUrl);
+      worker.id = i;
+      workerPool.push(worker);
+    }
   }
 
-  function setProgress(colsDone, colsTotal, startTs, rowsDone, rowsTotal){
-    const pct = colsTotal ? (colsDone/colsTotal)*100 : 0;
+  // 格式化时间
+  function fmtTime(ms) {
+    const s = Math.max(0, Math.round(ms / 1000));
+    const hh = Math.floor(s / 3600);
+    const mm = Math.floor((s % 3600) / 60);
+    const ss = s % 60;
+    return (hh > 0 ? String(hh).padStart(2, '0') + ':' : '') +
+      String(mm).padStart(2, '0') + ':' +
+      String(ss).padStart(2, '0');
+  }
+
+  // 更新进度
+  function setProgress() {
+    const pct = processingState.totalPixels ? 
+      (processingState.pixelsDone / processingState.totalPixels) * 100 : 0;
+    
     pBar.style.width = `${Math.min(100, pct)}%`;
-    const elapsed = performance.now() - startTs;
-    const eta = (colsDone>0) ? elapsed*(colsTotal-colsDone)/colsDone : 0;
-    const rowInfo = (rowsDone!=null && rowsTotal!=null)
-      ? `｜行 ${rowsDone}/${rowsTotal}` : '';
+    
+    const elapsed = performance.now() - processingState.startTs;
+    const eta = (processingState.pixelsDone > 0) ? 
+      elapsed * (processingState.totalPixels - processingState.pixelsDone) / processingState.pixelsDone : 0;
+    
+    const speed = elapsed > 0 ? 
+      Math.round(processingState.pixelsDone / (elapsed / 1000)) : 0;
+    
     pText.textContent =
-      `进度 ${Math.floor(pct)}% ｜ 已用 ${fmtTime(elapsed)} ｜ 剩余 ${fmtTime(eta)} ｜ 列 ${colsDone}/${colsTotal}${rowInfo}`;
+      `进度 ${Math.floor(pct)}% ｜ 已用 ${fmtTime(elapsed)} ｜ 剩余 ${fmtTime(eta)} ` +
+      `｜ 像素 ${processingState.pixelsDone.toLocaleString()}/${processingState.totalPixels.toLocaleString()} ` +
+      `｜ ${speed.toLocaleString()} px/s`;
+    
+    previewStatus.textContent = `已处理: ${Math.floor(pct)}%`;
   }
 
-  async function loadColours(){
+  // 加载颜色数据
+  async function loadColours() {
     const res = await fetch('./out_all_colours.json');
-    if(!res.ok) throw new Error('out_all_colours.json 加载失败');
-    const obj = await res.json();
-    return Object.entries(obj).map(([key, sides]) => ({key, sides}));
+    if (!res.ok) throw new Error('out_all_colours.json 加载失败');
+    return await res.json();
   }
 
-  function loadTexturesFromCSS(){
+  // 从CSS加载纹理
+  function loadTexturesFromCSS() {
     const textures = new Map();
-    for(const sheet of document.styleSheets){
-      let rules; try{ rules=sheet.cssRules; }catch{ continue; }
-      if(!rules) continue;
-      for(const rule of rules){
-        if(!(rule.selectorText && rule.style && rule.style.backgroundImage)) continue;
+    for (const sheet of document.styleSheets) {
+      let rules;
+      try { rules = sheet.cssRules; } catch { continue; }
+      if (!rules) continue;
+      for (const rule of rules) {
+        if (!(rule.selectorText && rule.style && rule.style.backgroundImage)) continue;
         const sel = rule.selectorText.trim();
-        if(!sel.startsWith('.')) continue;
+        if (!sel.startsWith('.')) continue;
         const m = rule.style.backgroundImage.match(/url\(['"]?(data:[^'")]+)['"]?\)/i);
-        if(!m) continue;
-        const className = sel.slice(1).split(/[ ,:.#\[]/,1)[0];
+        if (!m) continue;
+        const className = sel.slice(1).split(/[ ,:.#\[]/, 1)[0];
         const url = m[1];
         const img = new Image();
+        img.crossOrigin = "Anonymous";
         img.src = url;
         textures.set(className, img);
       }
@@ -76,214 +119,437 @@
     return textures;
   }
 
-  function waitImagesReady(images){
-    const tasks=[];
-    for(const img of images){
-      if(img.complete && img.naturalWidth) continue;
-      tasks.push(new Promise((res,rej)=>{ img.onload=()=>res(); img.onerror=()=>rej(new Error('贴图解码失败')); }));
+  // 等待图片加载
+  function waitImagesReady(images) {
+    const tasks = [];
+    for (const img of images) {
+      if (img.complete && img.naturalWidth) continue;
+      tasks.push(new Promise((res, rej) => { 
+        img.onload = () => res(); 
+        img.onerror = () => rej(new Error('贴图加载失败: ' + img.src)); 
+      }));
     }
     return Promise.all(tasks);
   }
 
-  function readFileAsImage(file){
-    return new Promise((resolve,reject)=>{
+  // 读取文件为图片
+  function readFileAsImage(file) {
+    return new Promise((resolve, reject) => {
       const url = URL.createObjectURL(file);
       const img = new Image();
-      img.onload = ()=>resolve(img);
-      img.onerror = ()=>reject(new Error('图片读取失败'));
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(img);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('图片读取失败'));
+      };
       img.src = url;
     });
   }
 
-  function downsampleToPixels(img, tileStep){
-    const w2 = Math.ceil(img.width / tileStep);
-    const h2 = Math.ceil(img.height / tileStep);
-    const cnv = document.createElement('canvas');
-    cnv.width = w2; cnv.height = h2;
-    const ctx = cnv.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(img, 0, 0, w2, h2);
-    const data = ctx.getImageData(0, 0, w2, h2).data;
-    return {w:w2, h:h2, data};
-  }
-
-  function colorDiffAbs(pix, col){
-    const r=Math.abs((pix[0]|0)-(col[0]|0));
-    const g=Math.abs((pix[1]|0)-(col[1]|0));
-    const b=Math.abs((pix[2]|0)-(col[2]|0));
-    const a=Math.abs(((pix[3]??255)|0)-((col[3]??255)|0));
-    return r+g+b+a;
-  }
-
-  function getScale(){
+  // 获取缩放倍数
+  function getScale() {
     let s = parseFloat(scaleInput.value);
-    if(!(s>0)) s = 4;
-    return s;
+    if (!(s > 0)) s = 4;
+    return Math.min(s, 16);
   }
 
-  function tileFromScale(scale){
-    return Math.max(1, Math.round(16/scale));
+  // 计算网格步长
+  function tileFromScale(scale) {
+    return Math.max(1, Math.round(16 / scale));
   }
 
-  function updateResLabels(){
-    if(!lastInputImage){
+  // 更新分辨率显示
+  function updateResLabels() {
+    if (!lastInputImage) {
       origResEl.textContent = '原图：-';
-      outResEl.textContent  = '输出：-';
+      outResEl.textContent = '输出：-';
       return;
     }
-    const scale = getScale();
-    const tileStep = tileFromScale(scale);
-    const gridW = Math.ceil(lastInputImage.width / tileStep);
-    const gridH = Math.ceil(lastInputImage.height / tileStep);
-    const outW = gridW * 16;
-    const outH = gridH * 16;
-    lastComputedOut = { w: outW, h: outH };
+    
+    processingState.scale = getScale();
+    processingState.tileStep = tileFromScale(processingState.scale);
+    
+    processingState.gridW = Math.ceil(lastInputImage.width / processingState.tileStep);
+    processingState.gridH = Math.ceil(lastInputImage.height / processingState.tileStep);
+    
+    processingState.outW = processingState.gridW * 16;
+    processingState.outH = processingState.gridH * 16;
+    
     origResEl.textContent = `原图：${lastInputImage.width}×${lastInputImage.height}`;
-    outResEl .textContent = `输出：${outW}×${outH}`;
+    outResEl.textContent = `输出：${processingState.outW}×${processingState.outH}`;
+    
+    // 计算分块
+    const tileCols = Math.ceil(lastInputImage.width / TILE_SIZE);
+    const tileRows = Math.ceil(lastInputImage.height / TILE_SIZE);
+    processingState.totalTiles = tileCols * tileRows;
+    statusText.textContent = `状态：分块 ${tileCols}×${tileRows} (共${processingState.totalTiles}块)`;
   }
 
-  // 选择文件后：读原图并显示分辨率
-  fileInput.addEventListener('change', async ()=>{
+  // 文件选择处理
+  fileInput.addEventListener('change', async () => {
     const f = fileInput.files && fileInput.files[0];
-    if(!f){ lastInputImage=null; lastInputFileName=''; updateResLabels(); return; }
-    try{
-      lastInputImage = await readFileAsImage(f);
-      lastInputFileName = f.name || 'image';
+    if (!f) {
+      lastInputImage = null;
+      lastInputFileName = '';
+      previewImg.style.display = 'none';
+      previewStatus.style.display = 'none';
       updateResLabels();
-    }catch(e){
+      return;
+    }
+    
+    try {
+      const img = await readFileAsImage(f);
+      
+      // 创建预览图（限制尺寸）
+      const maxSize = 2048;
+      let displayWidth = img.width;
+      let displayHeight = img.height;
+      
+      if (img.width > maxSize || img.height > maxSize) {
+        const ratio = Math.min(maxSize / img.width, maxSize / img.height);
+        displayWidth = Math.floor(img.width * ratio);
+        displayHeight = Math.floor(img.height * ratio);
+      }
+      
+      // 创建预览canvas
+      const previewCanvas = document.createElement('canvas');
+      previewCanvas.width = displayWidth;
+      previewCanvas.height = displayHeight;
+      const ctx = previewCanvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
+      
+      // 显示预览图
+      previewImg.src = previewCanvas.toDataURL('image/png');
+      previewImg.style.display = 'block';
+      previewImg.width = displayWidth;
+      previewImg.height = displayHeight;
+      previewStatus.style.display = 'block';
+      previewStatus.textContent = '准备处理';
+      
+      lastInputImage = img;
+      lastInputFileName = f.name.replace(/\.[^.]+$/, '') || 'image';
+      updateResLabels();
+    } catch (e) {
       console.error(e);
-      lastInputImage=null; lastInputFileName='';
+      lastInputImage = null;
+      lastInputFileName = '';
+      previewImg.style.display = 'none';
+      previewStatus.style.display = 'none';
       updateResLabels();
+      alert('图片加载失败: ' + e.message);
     }
   });
 
-  // 倍数变化时，实时更新“输出分辨率”
-  scaleInput.addEventListener('input', updateResLabels);
+  // 缩放输入处理
+  scaleInput.addEventListener('input', () => {
+    let val = parseFloat(scaleInput.value);
+    if (!isNaN(val) && val > 16) {
+      scaleInput.value = 16;
+    }
+    updateResLabels();
+  });
 
-  function setRunningUI(running){
+  // 设置UI状态
+  function setRunningUI(running) {
     fileInput.disabled = running;
     scaleInput.disabled = running;
     runBtn.disabled = running;
-    stopBtn.disabled = !running;
-    dlBtn.disabled = running; // 运行中不允许下载
-    pWrap.style.display = 'block';
+    pauseBtn.disabled = !running;
+    dlBtn.disabled = running;
+    pWrap.style.display = running ? 'block' : 'none';
+    
+    if (running) {
+      previewStatus.style.display = 'block';
+      previewStatus.textContent = '处理中...';
+    }
   }
 
-  async function run(){
-    const f = fileInput.files && fileInput.files[0];
-    if(!f){ alert('请选择图片'); return; }
-
-    // 预加载色板与贴图
-    const [blocksList, textures] = await Promise.all([loadColours(), Promise.resolve(loadTexturesFromCSS())]);
-    const entries = [];
-    for(const b of blocksList){
-      const side = b.sides[SIDE];
-      if(!side || !side.color || !side.color[COLOR_SET]) continue;
-      const img = textures.get(b.key);
-      if(!img) continue;
-      entries.push({ key: b.key, color: side.color[COLOR_SET], img });
-    }
-    await waitImagesReady(entries.map(e=>e.img));
-
-    // 读取输入图
-    const srcImg = lastInputImage || await readFileAsImage(f);
-    lastInputImage = srcImg;
-    lastInputFileName = f.name || 'image';
-    updateResLabels();
-
-    // 参数
-    const scale = getScale();
-    const tileStep = tileFromScale(scale);
-
-    // 生成低分辨率网格像素
-    const {w:gridW, h:gridH, data} = downsampleToPixels(srcImg, tileStep);
-
-    // 画布尺寸（输出分辨率）
-    const outW = gridW * 16;
-    const outH = gridH * 16;
-    canvas.width = outW;
-    canvas.height = outH;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0,0,outW,outH);
-
-    // 进度初始化
-    cancelFlag = false;
-    setRunningUI(true);
-    setProgress(0, gridW, performance.now()); // 列进度（外层循环按列）
-    const startTs = performance.now();
-
-    // 颜色匹配函数
-    const pickBlock = (r,g,b,a)=>{
-      let best=1e15, bestIdx=-1;
-      for(let i=0;i<entries.length;i++){
-        const d = colorDiffAbs([r,g,b,a], entries[i].color);
-        if(d<best){ best=d; bestIdx=i; }
+  // 处理单个分块
+  async function processTile(tileX, tileY) {
+    return new Promise((resolve) => {
+      const worker = workerPool.pop();
+      if (!worker) {
+        setTimeout(() => processTile(tileX, tileY).then(resolve), 100);
+        return;
       }
-      return entries[bestIdx];
-    };
-
-    // ====== 遍历顺序：按列（外层 x，内层 y）======
-    // 这样“每完成一列”就刷新一次进度（如需改为“每行”，把两层循环互换）
-    let colsDone = 0;
-    const colsTotal = gridW;
-
-    // data 的像素索引辅助
-    const idx = (x,y)=> (y*gridW + x) * 4;
-
-    outer:
-    for(let x=0; x<gridW; x++){
-      if(cancelFlag) break outer;
-      for(let y=0; y<gridH; y++){
-        if(cancelFlag) break outer;
-        const p = idx(x,y);
-        const r=data[p], g=data[p+1], b=data[p+2], a=data[p+3];
-        if(a>10){
-          const e = pickBlock(r,g,b,a);
-          if(e) ctx.drawImage(e.img, x*16, y*16, 16, 16);
+      
+      activeWorkers++;
+      
+      // 计算当前分块的区域
+      const startX = tileX * TILE_SIZE;
+      const startY = tileY * TILE_SIZE;
+      const width = Math.min(TILE_SIZE, lastInputImage.width - startX);
+      const height = Math.min(TILE_SIZE, lastInputImage.height - startY);
+      
+      // 创建离屏Canvas处理分块
+      const tileCanvas = document.createElement('canvas');
+      tileCanvas.width = width;
+      tileCanvas.height = height;
+      const tileCtx = tileCanvas.getContext('2d');
+      tileCtx.drawImage(
+        lastInputImage, 
+        startX, startY, width, height,
+        0, 0, width, height
+      );
+      
+      const imageData = tileCtx.getImageData(0, 0, width, height);
+      
+      // 计算网格区域
+      const gridX = Math.floor(startX / processingState.tileStep);
+      const gridY = Math.floor(startY / processingState.tileStep);
+      const gridW = Math.ceil(width / processingState.tileStep);
+      const gridH = Math.ceil(height / processingState.tileStep);
+      
+      // 发送给Worker处理
+      worker.postMessage({
+        id: `${tileX}-${tileY}`,
+        type: 'process',
+        data: {
+          imageData,
+          gridX,
+          gridY,
+          gridW,
+          gridH,
+          tileSize: processingState.tileStep
         }
-      }
-      colsDone++;
-      setProgress(colsDone, colsTotal, startTs, null, null); // 列进度显示
-      // 小让步给 UI
-      if (x % 8 === 0) await new Promise(r=>setTimeout(r,0));
-    }
+      }, [imageData.data.buffer]);
+      
+      worker.onmessage = (e) => {
+        if (e.data.type === 'result') {
+          const { data, gridX, gridY } = e.data;
+          
+          // 处理结果（每个网格的颜色索引）
+          for (let y = 0; y < gridH; y++) {
+            for (let x = 0; x < gridW; x++) {
+              const idx = y * gridW + x;
+              const colorIdx = data[idx];
+              
+              if (colorIdx >= 0) {
+                const block = processingState.blocks[colorIdx];
+                if (block) {
+                  // 保存到状态
+                  const absX = gridX + x;
+                  const absY = gridY + y;
+                  processingState.tileMap.set(`${absX},${absY}`, block);
+                }
+              }
+              
+              // 更新进度
+              processingState.pixelsDone++;
+              if (processingState.pixelsDone % 10000 === 0) {
+                setProgress();
+              }
+            }
+          }
+          
+          processingState.tilesDone++;
+          setProgress();
+          
+          workerPool.push(worker);
+          activeWorkers--;
+          completedWorkers++;
+          resolve();
+        }
+      };
+    });
+  }
 
-    if(cancelFlag){
-      pText.textContent = '已停止';
-      setRunningUI(false);
+  // 主处理函数
+  async function run() {
+    if (!lastInputImage) {
+      alert('请先选择图片');
       return;
     }
-
-    setProgress(colsTotal, colsTotal, startTs);
+    
+    // 初始化Web Worker池
+    if (workerPool.length === 0) {
+      initWorkerPool();
+    }
+    
+    // 加载颜色数据
+    try {
+      const colours = await loadColours();
+      processingState.blocksList = Object.entries(colours).map(([key, sides]) => ({ key, sides }));
+      
+      // 加载纹理
+      processingState.textures = loadTexturesFromCSS();
+      await waitImagesReady([...processingState.textures.values()]);
+      
+      // 准备颜色数据给Worker
+      processingState.blocks = [];
+      for (const b of processingState.blocksList) {
+        const side = b.sides[SIDE];
+        if (!side || !side.color || !side.color[COLOR_SET]) continue;
+        processingState.blocks.push(side.color[COLOR_SET]);
+      }
+      
+      // 初始化Worker
+      await Promise.all(workerPool.map(worker => {
+        return new Promise((resolve) => {
+          worker.postMessage({
+            type: 'init',
+            data: { blocks: processingState.blocks }
+          });
+          
+          worker.onmessage = (e) => {
+            if (e.data.type === 'ready') resolve();
+          };
+        });
+      }));
+    } catch (e) {
+      console.error(e);
+      alert('初始化失败: ' + e.message);
+      return;
+    }
+    
+    // 重置状态
+    cancelFlag = false;
+    processingState.tilesDone = 0;
+    processingState.pixelsDone = 0;
+    processingState.tileMap.clear();
+    processingState.startTs = performance.now();
+    
+    // 更新分辨率
+    updateResLabels();
+    
+    // 计算总像素
+    processingState.totalPixels = processingState.gridW * processingState.gridH;
+    
+    // 计算分块
+    const tileCols = Math.ceil(lastInputImage.width / TILE_SIZE);
+    const tileRows = Math.ceil(lastInputImage.height / TILE_SIZE);
+    processingState.totalTiles = tileCols * tileRows;
+    
+    setRunningUI(true);
+    setProgress();
+    
+    // 处理所有分块
+    const tilePromises = [];
+    
+    for (let tileY = 0; tileY < tileRows; tileY++) {
+      for (let tileX = 0; tileX < tileCols; tileX++) {
+        if (cancelFlag) break;
+        
+        // 控制并发数量
+        while (activeWorkers >= MAX_WORKERS) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        tilePromises.push(processTile(tileX, tileY));
+      }
+    }
+    
+    try {
+      await Promise.all(tilePromises);
+      
+      if (!cancelFlag) {
+        // 所有分块处理完成
+        previewStatus.textContent = '处理完成！';
+        statusText.textContent = '状态：处理完成';
+        dlBtn.disabled = false;
+      }
+    } catch (e) {
+      console.error(e);
+      previewStatus.textContent = '处理出错';
+      statusText.textContent = '状态：出错 - ' + e.message;
+    }
+    
     setRunningUI(false);
-    dlBtn.disabled = false;
   }
 
-  function stop(){
+  // 暂停处理
+  function pause() {
     cancelFlag = true;
+    previewStatus.textContent = '已暂停';
+    statusText.textContent = '状态：已暂停';
+    dlBtn.disabled = false; // 暂停时允许下载
   }
 
-  function downloadPNG(){
-    const base = (lastInputFileName || 'image').replace(/\.[^.]+$/,'');
-    const ts = new Date();
-    const pad = (n)=>String(n).padStart(2,'0');
-    const stamp = `${String(ts.getFullYear()).slice(2)}_${pad(ts.getMonth()+1)}_${pad(ts.getDate())}-${pad(ts.getHours())}_${pad(ts.getMinutes())}_${pad(ts.getSeconds())}`;
-    const fname = `${base}_${stamp}.png`;
-
-    canvas.toBlob((blob)=>{
-      if(!blob) return;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = fname;
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
-    }, 'image/png');
+  // 下载图片
+  async function downloadPNG() {
+    previewStatus.textContent = '正在生成图片...';
+    statusText.textContent = '状态：生成图片中';
+    
+    try {
+      // 创建离屏Canvas
+      const outputCanvas = document.createElement('canvas');
+      outputCanvas.width = processingState.outW;
+      outputCanvas.height = processingState.outH;
+      const ctx = outputCanvas.getContext('2d');
+      
+      // 绘制所有已处理的网格
+      const totalPixels = processingState.gridW * processingState.gridH;
+      let drawnPixels = 0;
+      
+      for (let y = 0; y < processingState.gridH; y++) {
+        for (let x = 0; x < processingState.gridW; x++) {
+          const block = processingState.tileMap.get(`${x},${y}`);
+          if (block) {
+            const texture = processingState.textures.get(block.key);
+            if (texture) {
+              ctx.drawImage(texture, x * 16, y * 16, 16, 16);
+            }
+          }
+          
+          // 更新进度显示
+          drawnPixels++;
+          if (drawnPixels % 1000 === 0) {
+            const pct = (drawnPixels / totalPixels) * 100;
+            previewStatus.textContent = `生成图片中 ${Math.floor(pct)}%`;
+            await new Promise(r => setTimeout(r, 0)); // 让UI更新
+          }
+        }
+      }
+      
+      // 生成文件名
+      const base = lastInputFileName;
+      const ts = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const stamp = `${String(ts.getFullYear()).slice(2)}_${pad(ts.getMonth() + 1)}_${pad(ts.getDate())}-${pad(ts.getHours())}_${pad(ts.getMinutes())}_${pad(ts.getSeconds())}`;
+      const fname = `${base}_${stamp}.png`;
+      
+      // 下载
+      outputCanvas.toBlob((blob) => {
+        if (!blob) {
+          previewStatus.textContent = '生成图片失败';
+          statusText.textContent = '状态：生成图片失败';
+          return;
+        }
+        
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        
+        previewStatus.textContent = cancelFlag ? '已暂停' : '处理完成！';
+        statusText.textContent = cancelFlag ? '状态：已暂停' : '状态：处理完成';
+      }, 'image/png');
+    } catch (e) {
+      console.error(e);
+      previewStatus.textContent = '生成图片出错';
+      statusText.textContent = '状态：生成图片出错 - ' + e.message;
+    }
   }
 
-  runBtn.addEventListener('click', ()=>run().catch(e=>{
-    console.error(e);
-    pText.textContent = '出错：' + (e?.message || e);
-    setRunningUI(false);
-  }));
-  stopBtn.addEventListener('click', stop);
+  // 事件监听
+  runBtn.addEventListener('click', () => {
+    if (pauseBtn.disabled) {
+      run().catch(e => {
+        console.error(e);
+        previewStatus.textContent = '出错: ' + e.message;
+        statusText.textContent = '状态：出错 - ' + e.message;
+        setRunningUI(false);
+      });
+    }
+  });
+  
+  pauseBtn.addEventListener('click', pause);
   dlBtn.addEventListener('click', downloadPNG);
 })();
