@@ -553,8 +553,8 @@ espgnbm0123456789{}[]()<,>
       const comboMult = totalComboScore / (noteAmount * bMax);
       const comboBonus = 5000 * maxCombo / noteAmount;
       // 最终得分
-      const finalScore = accScore * (0.4 + 0.6 * comboMult) + comboBonus + apBonus;
-      return { noteAmount, maxCombo, finalScore: Math.floor(finalScore), counts, comboMult, totalAccScore, totalComboScore, bMax };
+      const finalScore = Math.floor(accScore * (0.4 + 0.6 * comboMult)) + Math.floor(comboBonus) + apBonus;
+      return { noteAmount, maxCombo, finalScore: finalScore, counts, comboMult, totalAccScore, totalComboScore, bMax };
     }
 
     // 主页计算函数
