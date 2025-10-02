@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>名字补全到100%</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body { font-family: sans-serif; background: #1e1e1e; color: #f0f0f0; padding: 20px; }
+    .container { max-width: 600px; margin: auto; }
+    textarea { width: 100%; height: 100px; margin: 10px 0; background:#2d2d2d; color:#fff; border:1px solid #555; border-radius:5px; padding:10px; }
+    button { margin: 5px; padding: 8px 16px; background:#6b46c1; color:#fff; border:none; border-radius:5px; cursor:pointer; }
+    button:hover { background:#553c9a; }
+    .result-info { margin-top:10px; font-size:14px; color:#aaa; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>名字补全到 100%</h1>
+  </header>
+
+  <main class="container">
+    <section>
+      <label for="inputChars">原文</label>
+      <textarea id="inputChars" placeholder="输入数据"></textarea>
+      <div class="btn-group">
+        <button id="processBtn">补全到100%</button>
+      </div>
+    </section>
+
+    <section>
+      <label for="outputChars">结果</label>
+      <textarea id="outputChars" placeholder="自动输出结果"></textarea>
+      <div class="result-info" id="resultInfo"></div>
+    </section>
+  </main>
+
+  <script>
+    // 可选字符集：字母 + 数字
+    const charset = "abcdefghijklmnopqrstuvwxyz0123456789".split("");
+
+    // 算分函数
+    function calculateScore(str) {
+      if (!str) return 0;
+      let sum = 0;
+      for (let i = 0; i < str.length; i++) {
+        sum += str.charCodeAt(i) * (i + 1);
+      }
+      return sum % 101;
+    }
+
+    // 补全函数
+    function completeTo100(input) {
+      let base = input;
+      let score = calculateScore(base);
+
+      let i = 0;
+      while (score !== 100) {
+        base += charset[i % charset.length]; // 顺序尝试字母/数字
+        score = calculateScore(base);
+        i++;
+        if (i > 2000) break; // 防止死循环
+      }
+      return { result: base, finalScore: score };
+    }
+
+    document.getElementById("processBtn").addEventListener("click", () => {
+      const input = document.getElementById("inputChars").value;
+      const origScore = calculateScore(input);
+      const { result, finalScore } = completeTo100(input);
+
+      document.getElementById("outputChars").value = result;
+      document.getElementById("resultInfo").textContent =
+        `原始分数：${origScore} → 补全后分数：${finalScore}`;
+    });
+  </script>
+</body>
+</html>

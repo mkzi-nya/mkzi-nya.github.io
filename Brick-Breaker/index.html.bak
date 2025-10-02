@@ -230,7 +230,7 @@
             if (roll < 0.02) { // 无穷方块2%
               type = "unbreakable";
               hp = Infinity;
-            } else if (roll < 0.05) { // extraBall=20%
+            } else if (roll < 0.1) { // extraBall=20%
               if (!extraBallCreated) {
                 type = "extraBall";
                 hp = 1;
@@ -279,7 +279,7 @@
             type = "unbreakable";
             hp = Infinity;
           }
-        } else if (roll < 0.05) {
+        } else if (roll < 0.1) {
           if (!extraBallCreated) {
             type = "extraBall";
             hp = 1;

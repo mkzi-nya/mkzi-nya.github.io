@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>名字补全器</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f4f4; color: #333; }
+    .container { max-width: 600px; margin: 40px auto; padding: 20px; background: #fff; border-radius: 8px; }
+    textarea, input { width: 100%; padding: 10px; margin: 6px 0; border-radius: 4px; border: 1px solid #ccc; }
+    button { padding: 8px 16px; margin: 4px; border: none; border-radius: 4px; cursor: pointer; background: #4caf50; color: white; }
+    button:hover { background: #45a049; }
+    label { font-weight: bold; display: block; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 style="text-align:center;">名字补全器</h1>
+  </header>
+
+  <main class="container">
+    <section>
+      <label for="inputChars">原文</label>
+      <textarea id="inputChars" placeholder="输入名字或字符串"></textarea>
+      <div>
+        <button id="calcBtn">计算并补全</button>
+        <button id="clearBtn">清空</button>
+      </div>
+    </section>
+
+    <section>
+      <label for="inputCodes">补全后的结果</label>
+      <textarea id="inputCodes" readonly placeholder="这里显示补全后的名字"></textarea>
+    </section>
+  </main>
+
+  <script>
+    // 算法：加权字符编码求和 % 101
+    function calculateScore(name) {
+      if (!name) return 0;
+      let sum = 0;
+      for (let i = 0; i < name.length; i++) {
+        sum += name.charCodeAt(i) * (i + 1);
+      }
+      return sum % 101;
+    }
+
+    // 找到一个字符（字母或数字），加上后结果为100
+    function findFixChar(name) {
+      const baseSum = (() => {
+        let sum = 0;
+        for (let i = 0; i < name.length; i++) {
+          sum += name.charCodeAt(i) * (i + 1);
+        }
+        return sum;
+      })();
+
+      const pos = name.length + 1; // 新字符的位置权重
+      for (let c = 48; c <= 122; c++) { // '0'(48) 到 'z'(122)
+        if ((c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122)) {
+          let newSum = baseSum + c * pos;
+          if (newSum % 101 === 100) {
+            return String.fromCharCode(c);
+          }
+        }
+      }
+      return ""; // 没找到（理论上总能找到）
+    }
+
+    document.getElementById("calcBtn").addEventListener("click", () => {
+      const name = document.getElementById("inputChars").value.trim();
+      if (!name) {
+        alert("请输入内容！");
+        return;
+      }
+      const fixChar = findFixChar(name);
+      document.getElementById("inputCodes").value = name + fixChar;
+    });
+
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      document.getElementById("inputChars").value = "";
+      document.getElementById("inputCodes").value = "";
+    });
+  </script>
+</body>
+</html>
