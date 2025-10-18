@@ -1,0 +1,39 @@
+/* 外壳，和光暗切换开关一样 */
+#bgm-toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 9999px;
+  background: var(--vp-c-bg-alt);
+  border: 1px solid var(--vp-c-divider);
+  transition: background 0.25s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* 内部圆点 */
+#bgm-toggle .icon {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--vp-c-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: transform 0.25s;
+}
+
+/* 🎵 在右边 */
+#bgm-toggle.playing .icon {
+  transform: translateX(9px);
+}
+
+/* 🔇 在左边 */
+#bgm-toggle.paused .icon {
+  transform: translateX(-9px);
+}
