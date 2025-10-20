@@ -9,20 +9,10 @@ export default defineConfig({
   themeConfig: {
     nav: [{ text: 'Home', link: '/index' }],
     sidebar: [
+      { text: 'Milthm Story', items: [{ text: 'Languages', link: '/index' }] },
       {
-        text: 'Languages',
-        items: [
-          { text: '简体中文', link: '/zh_Hans' },
-          { text: '繁體中文', link: '/zh_Hant' },
-          { text: '粵語', link: '/yue_Hant' },
-          { text: 'English', link: '/en' },
-          { text: '日本語', link: '/ja' },
-          { text: 'Español', link: '/es' },
-          { text: 'Français', link: '/fr' },
-          { text: '한국어', link: '/ko' },
-          { text: 'Русский', link: '/ru' },
-          { text: 'Tiếng Việt', link: '/vi' }
-        ]
+        text: '二创分区/Fan Content',
+        items: [{ text: '曲绘分析', link: '/illustration' }]
       }
     ],
     outline: { level: [2, 4] },
