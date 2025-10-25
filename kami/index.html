@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh">
+<head>
+    <meta charset="utf-8">
+    <title>我，才是神明</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        html, body {
+            margin: 0;
+            overflow: hidden;
+            background-color: black;
+        }
+
+        @keyframes burst {
+            0% {
+                background-color: black;
+                color: oklch(0 0 0);
+            }
+            50% {
+                background-color: white;
+                color: oklch(0.59 0.2577 29.23);
+            }
+            100% {
+                background-color: white;
+                color: oklch(0.59 0.2577 29.23);
+            }
+        }
+
+        .background {
+            width: 100vw;
+            height: 100vh;
+            display: grid;
+            align-items: center;
+            justify-items: center;
+
+            animation-name: burst;
+            animation-duration: 3s;
+            animation-fill-mode: forwards;
+            animation-play-state: paused;
+        }
+
+        .logo {
+            font-size: calc(5vw + 5vh);
+            font-weight: bold;
+            font-family: "SimHei", "黑体", sans-serif;
+            color: oklch(0.59 0.2577 29.23);
+            text-shadow:
+                0 0 20px oklch(0.59 0.2577 29.23 / 0.8),
+                0 0 40px oklch(0.59 0.2577 29.23 / 0.6),
+                0 0 80px oklch(0.59 0.2577 29.23 / 0.4);
+            opacity: 0;
+            transition: opacity 1.5s ease-in-out;
+        }
+
+        body.loaded .background {
+            animation-play-state: running;
+        }
+
+        body.loaded .logo {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+<div class="background">
+    <div class="logo">我，才是神明</div>
+</div>
+
+<script>
+    setTimeout(() => {
+        document.body.classList.add("loaded");
+    }, 1000);
+</script>
+</body>
+</html>
