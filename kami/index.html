@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
     <meta charset="utf-8">
-    <title>我，才是神明</title>
+    <title>私こそが、神なのだ。</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         html, body {
@@ -11,17 +11,15 @@
             background-color: black;
         }
 
-        @keyframes burst {
+        @keyframes appear {
             0% {
-                background-color: black;
-                color: oklch(0 0 0);
-            }
-            50% {
-                background-color: white;
-                color: oklch(0.59 0.2577 29.23);
+                opacity: 0;
+                transform: scale(0.8);
+                color: oklch(0.59 0.2577 29.23 / 0);
             }
             100% {
-                background-color: white;
+                opacity: 1;
+                transform: scale(1);
                 color: oklch(0.59 0.2577 29.23);
             }
         }
@@ -30,13 +28,8 @@
             width: 100vw;
             height: 100vh;
             display: grid;
-            align-items: center;
-            justify-items: center;
-
-            animation-name: burst;
-            animation-duration: 3s;
-            animation-fill-mode: forwards;
-            animation-play-state: paused;
+            place-items: center;
+            background-color: black;
         }
 
         .logo {
@@ -47,17 +40,8 @@
             text-shadow:
                 0 0 20px oklch(0.59 0.2577 29.23 / 0.8),
                 0 0 40px oklch(0.59 0.2577 29.23 / 0.6),
-                0 0 80px oklch(0.59 0.2577 29.23 / 0.4);
-            opacity: 0;
-            transition: opacity 1.5s ease-in-out;
-        }
-
-        body.loaded .background {
-            animation-play-state: running;
-        }
-
-        body.loaded .logo {
-            opacity: 1;
+                0 0 80px oklch(0.59 0.2577 29.23 / 0.3);
+            animation: appear 2s ease-out forwards;
         }
     </style>
 </head>
@@ -65,11 +49,5 @@
 <div class="background">
     <div class="logo">我，才是神明</div>
 </div>
-
-<script>
-    setTimeout(() => {
-        document.body.classList.add("loaded");
-    }, 1000);
-</script>
 </body>
 </html>
