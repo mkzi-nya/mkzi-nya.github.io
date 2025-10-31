@@ -7,70 +7,52 @@
   <link rel="stylesheet" href="./global.css" />
   <link rel="stylesheet" href="./image.css" />
   <style>
-    /* 全局暗色模式 */
-    *{box-sizing:border-box;margin:0;padding:0}
-    html,body{background:#121212!important;color:#fff!important;font-family:'PlangothicP1','PlangothicP2',sans-serif;height:100%}
-    h1{font-size:1.8rem;margin:.5rem 0;color:#fff}
-    .container{max-width:800px;margin:0 auto;padding:1rem}
+/* 全局暗色模式 */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#121212!important;color:#fff!important;font-family:'PlangothicP1','PlangothicP2',sans-serif;height:100%}
+h1{font-size:1.8rem;margin:.5rem 0;color:#fff}
+.container{max-width:600px;margin:0 auto;padding:1rem}
 
-    /* 输入与按钮 */
-    input[type="file"],input[type="number"],button{
-      background:#2a2a2a!important;color:#fff!important;border:1px solid #3a3a3a!important;
-      border-radius:4px;padding:.5rem
-    }
-    button:hover{background:#444!important}
+/* 输入与按钮 */
+input[type="file"],input[type="number"],button{
+  background:#2a2a2a!important;color:#fff!important;border:1px solid #3a3a3a!important;
+  border-radius:4px;padding:.5rem
+}
+button:hover{background:#444!important}
 
-    /* 行/间距/弱化文字 */
-    .row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
-    .center{justify-content:center}.mt{margin-top:.75rem}.muted{opacity:.8}
+/* 行/间距/弱化文字 */
+.row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+.center{justify-content:center}.mt{margin-top:.75rem}.muted{opacity:.8}
 
-    /* 进度条 */
-    .progress{height:10px;background:#2a2a2a!important;border:1px solid #3a3a3a;border-radius:6px;overflow:hidden}
-    .progress .bar{height:100%;width:0%;background:#666!important}
+/* 进度条 */
+.progress{height:10px;background:#2a2a2a!important;border:1px solid #3a3a3a;border-radius:6px;overflow:hidden}
+.progress .bar{height:100%;width:0%;background:#666!important}
 
-    /* 预览区域：限制高度，等比缩放居中显示 */
-    .preview{
-      margin-top:.75rem;
-      width:100%;
-      height:480px;
-      background:#1e1e1e;
-      border:1px solid #3a3a3a;
-      border-radius:6px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      overflow:hidden;
-      position:relative;
-    }
+/* 预览区域：限制高度，等比缩放居中显示 */
+.preview{
+  margin-top:.75rem;
+  width:100%;
+  height:360px;                 /* 预览区域的可视高度，你可按需改：比如 240px/480px */
+  background:#1e1e1e;
+  border:1px solid #3a3a3a;
+  border-radius:6px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+}
 
-    /* 图片预览：限制最大尺寸 */
-    .preview img {
-      max-width: 100%;
-      max-height: 100%;
-      width: auto;
-      height: auto;
-      object-fit: contain;
-      display: block;
-      background: #1e1e1e;
-    }
-    
-    /* 状态提示 */
-    .status {
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
-      background: rgba(0,0,0,0.7);
-      padding: 5px 10px;
-      border-radius: 4px;
-      font-size: 0.9rem;
-    }
-    
-    /* 性能提示 */
-    .perf-tip {
-      margin-top: 0.5rem;
-      font-size: 0.85rem;
-      opacity: 0.7;
-    }
+/* 画布：等比缩放到容器内（不裁剪），像素风格显示 */
+.preview canvas{
+  max-width:100%;
+  max-height:100%;
+  width:auto!important;         /* 保持等比 */
+  height:auto!important;        /* 保持等比 */
+  image-rendering: pixelated;
+  background:#1e1e1e!important; /* 与容器一致 */
+  border:none;                  /* 外层容器已有边框 */
+  border-radius:0;
+}
   </style>
 </head>
 <body>
@@ -81,9 +63,9 @@
       <div class="row">
         <input id="fileInput" type="file" accept="image/*" />
         <label for="scaleInput" class="muted">倍数</label>
-        <input id="scaleInput" type="number" min="0.1" step="0.1" value="4" max="16" />
+        <input id="scaleInput" type="number" min="0.1" step="0.1" value="4" />
         <button id="runBtn">开始</button>
-        <button id="pauseBtn" disabled>暂停</button>
+        <button id="stopBtn" disabled>停止</button>
         <button id="downloadBtn" disabled>下载</button>
       </div>
 
@@ -91,12 +73,6 @@
         <span id="origRes">原图：-</span>
         <span>｜</span>
         <span id="outRes">输出：-</span>
-        <span>｜</span>
-        <span id="statusText">状态：待处理</span>
-      </div>
-      
-      <div class="perf-tip">
-        提示：大图片处理需要时间，建议使用倍数为4-8以获得最佳性能
       </div>
 
       <div class="mt">
@@ -106,75 +82,14 @@
         <div class="row center mt"><span id="progressText"></span></div>
       </div>
 
-      <!-- 预览区 -->
+      <!-- 新增预览容器：限制区域内按比例缩放显示 -->
       <div class="preview">
-        <img id="previewImg" alt="预览图" style="display:none;" />
-        <div id="previewStatus" class="status" style="display:none;"></div>
+        <canvas id="outCanvas"></canvas>
       </div>
     </section>
   </main>
 
-  <script>
-    // 创建Web Worker的Blob URL
-    const workerScript = `
-      self.importScripts('https://cdn.jsdelivr.net/npm/rgbquant@1.1.2/dist/rgbquant.min.js');
-      
-      self.addEventListener('message', (e) => {
-        const { id, type, data } = e.data;
-        
-        if (type === 'init') {
-          // 初始化颜色匹配器
-          const { blocks } = data;
-          self.blocks = blocks;
-          self.quant = new RGBQuant({ colors: blocks.length });
-          self.quant.sample(blocks);
-          self.palette = self.quant.palette(true);
-          
-          self.postMessage({ id, type: 'ready' });
-        }
-        else if (type === 'process') {
-          const { imageData, gridX, gridY, gridW, gridH, tileSize } = data;
-          const result = new Uint8Array(gridW * gridH);
-          
-          // 使用颜色量化加速匹配
-          const imgData = imageData.data;
-          const width = imageData.width;
-          
-          for (let y = 0; y < gridH; y++) {
-            for (let x = 0; x < gridW; x++) {
-              const px = (gridX + x) * tileSize;
-              const py = (gridY + y) * tileSize;
-              const idx = (py * width + px) * 4;
-              
-              const r = imgData[idx];
-              const g = imgData[idx + 1];
-              const b = imgData[idx + 2];
-              const a = imgData[idx + 3];
-              
-              if (a > 10) {
-                const colorIdx = self.quant.getPaletteIndex([r, g, b, a]);
-                result[y * gridW + x] = colorIdx;
-              } else {
-                result[y * gridW + x] = -1; // 透明像素
-              }
-            }
-          }
-          
-          self.postMessage({ 
-            id, 
-            type: 'result', 
-            data: result,
-            gridX,
-            gridY
-          }, [result.buffer]);
-        }
-      });
-    `;
-    
-    const workerBlob = new Blob([workerScript], { type: 'application/javascript' });
-    const workerUrl = URL.createObjectURL(workerBlob);
-  </script>
-  
+  <footer></footer>
   <script src="./script.js"></script>
 </body>
 </html>
