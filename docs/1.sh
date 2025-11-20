@@ -1,4 +1,4 @@
-cp -u -r "$(dirname "$0")/webdocs" ~/
+cp -r "$(dirname "$0")/webdocs" ~/
 cd ~/webdocs
 pnpm run docs:build
 rm -rf "$(dirname "$0")"/assets
