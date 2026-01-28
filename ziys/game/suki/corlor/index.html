@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>颜色合成分析</title>
+
+<style>
+:root {
+    --bg: #0e1014;
+    --panel: #161922;
+    --text: #e6e8ee;
+    --muted: #9aa0aa;
+    --accent: #4da3ff;
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    padding: env(safe-area-inset-top) 12px env(safe-area-inset-bottom);
+}
+
+/* ===== 标题 ===== */
+
+header {
+    padding: 12px 4px 8px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* ===== 面板 ===== */
+
+.panel {
+    background: var(--panel);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+/* ===== 上传按钮 ===== */
+
+input[type="file"] {
+    width: 100%;
+    color: var(--text);
+    font-size: 14px;
+}
+
+/* ===== Canvas ===== */
+
+canvas {
+    width: 100%;
+    height: auto;
+    margin-top: 10px;
+    border-radius: 8px;
+    display: block;
+}
+
+/* ===== 结果区域 ===== */
+
+.section-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.color-box {
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+    border: 1px solid #000;
+    flex-shrink: 0;
+}
+
+.info {
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+code {
+    background: #0b0d11;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #262a36;
+    margin: 12px 0;
+}
+
+.muted {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+/* ===== 桌面端微调 ===== */
+
+@media (min-width: 768px) {
+    body {
+        max-width: 720px;
+        margin: 0 auto;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>颜色合成配方分析</header>
+
+<div class="panel">
+    <input type="file" accept="image/*" id="fileInput">
+    <canvas id="canvas"></canvas>
+</div>
+
+<div class="panel" id="output">
+    <div class="muted">请选择图片</div>
+</div>
+
+<script>
+/* ===== 原始基准分辨率 ===== */
+
+const BASE_WIDTH = 720;
+const BASE_HEIGHT = 1560;
+
+const MODEL_POINT = [200, 534];
+
+const PAINT_POINTS = {
+    1: [120, 779],
+    2: [209, 788],
+    3: [282, 789],
+    4: [369, 788],
+    5: [453, 790],
+    6: [526, 788],
+    7: [613, 787],
+};
+
+/* ===== 数学工具 ===== */
+
+const rgbToHex = ([r,g,b]) =>
+    "#" + [r,g,b].map(v => v.toString(16).padStart(2,"0")).join("");
+
+const distance = (a,b) =>
+    Math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2);
+
+const mixRGB = colors => {
+    const n = colors.length;
+    return [
+        colors.reduce((s,c)=>s+c[0],0)/n,
+        colors.reduce((s,c)=>s+c[1],0)/n,
+        colors.reduce((s,c)=>s+c[2],0)/n
+    ];
+};
+
+/* ===== 主流程 ===== */
+
+const fileInput = document.getElementById("fileInput");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const output = document.getElementById("output");
+
+fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const img = new Image();
+    img.onload = () => analyze(img);
+    img.src = URL.createObjectURL(file);
+});
+
+function analyze(img) {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+
+    const sx = img.width / BASE_WIDTH;
+    const sy = img.height / BASE_HEIGHT;
+
+    const getPixel = (x,y) => {
+        const d = ctx.getImageData(
+            Math.round(x * sx),
+            Math.round(y * sy),
+            1,1
+        ).data;
+        return [d[0], d[1], d[2]];
+    };
+
+    const modelRGB = getPixel(...MODEL_POINT);
+
+    const paints = {};
+    for (const i in PAINT_POINTS) {
+        paints[i] = getPixel(...PAINT_POINTS[i]);
+    }
+
+    let best = null;
+    const keys = Object.keys(paints);
+
+    for (const a of keys)
+    for (const b of keys)
+    for (const c of keys) {
+        const mixed = mixRGB([paints[a], paints[b], paints[c]]);
+        const d = distance(mixed, modelRGB);
+        if (!best || d < best.dist) {
+            best = { combo:[a,b,c], mixed, dist:d };
+        }
+    }
+
+    render(modelRGB, paints, best);
+}
+
+function render(modelRGB, paints, best) {
+    const mixedInt = best.mixed.map(v => Math.round(v));
+
+    output.innerHTML = `
+        <div class="section-title">模特颜色</div>
+        <div class="row">
+            <div class="color-box" style="background:${rgbToHex(modelRGB)}"></div>
+            <div class="info">
+                RGB ${modelRGB.join(", ")}<br>
+                HEX <code>${rgbToHex(modelRGB)}</code>
+            </div>
+        </div>
+
+        <hr>
+
+        <div class="section-title">最优三色组合</div>
+        <div class="info">编号：${best.combo.join(" + ")}</div>
+
+        <div class="row" style="margin-top:8px">
+            ${best.combo.map(i =>
+                `<div class="color-box" style="background:${rgbToHex(paints[i])}"></div>`
+            ).join("")}
+            <div class="color-box" style="background:${rgbToHex(mixedInt)}"></div>
+        </div>
+
+        <div class="info" style="margin-top:8px">
+            混合 RGB：${mixedInt.join(", ")}<br>
+            混合 HEX：<code>${rgbToHex(mixedInt)}</code><br>
+            误差：${best.dist.toFixed(4)}
+        </div>
+    `;
+}
+</script>
+
+</body>
+</html>
