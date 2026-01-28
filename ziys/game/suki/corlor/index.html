@@ -11,7 +11,6 @@
     --panel: #161922;
     --text: #e6e8ee;
     --muted: #9aa0aa;
-    --accent: #4da3ff;
 }
 
 * {
@@ -27,15 +26,11 @@ body {
     padding: env(safe-area-inset-top) 12px env(safe-area-inset-bottom);
 }
 
-/* ===== 标题 ===== */
-
 header {
     padding: 12px 4px 8px;
     font-size: 16px;
     font-weight: 600;
 }
-
-/* ===== 面板 ===== */
 
 .panel {
     background: var(--panel);
@@ -44,15 +39,11 @@ header {
     margin-bottom: 12px;
 }
 
-/* ===== 上传按钮 ===== */
-
 input[type="file"] {
     width: 100%;
     color: var(--text);
     font-size: 14px;
 }
-
-/* ===== Canvas ===== */
 
 canvas {
     width: 100%;
@@ -61,8 +52,6 @@ canvas {
     border-radius: 8px;
     display: block;
 }
-
-/* ===== 结果区域 ===== */
 
 .section-title {
     font-size: 13px;
@@ -77,9 +66,15 @@ canvas {
     flex-wrap: wrap;
 }
 
+.palette-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+}
+
 .color-box {
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
     border-radius: 6px;
     border: 1px solid #000;
     flex-shrink: 0;
@@ -108,8 +103,6 @@ hr {
     font-size: 13px;
 }
 
-/* ===== 桌面端微调 ===== */
-
 @media (min-width: 768px) {
     body {
         max-width: 720px;
@@ -133,24 +126,41 @@ hr {
 </div>
 
 <script>
-/* ===== 原始基准分辨率 ===== */
+/* ========= 两套基准配置 ========= */
 
-const BASE_WIDTH = 720;
-const BASE_HEIGHT = 1560;
-
-const MODEL_POINT = [200, 534];
-
-const PAINT_POINTS = {
-    1: [120, 779],
-    2: [209, 788],
-    3: [282, 789],
-    4: [369, 788],
-    5: [453, 790],
-    6: [526, 788],
-    7: [613, 787],
+// 方案 A：720 × 1560（旧）
+const BASE_A = {
+    w: 720,
+    h: 1560,
+    model: [200, 534],
+    paints: {
+        1: [120, 779],
+        2: [209, 788],
+        3: [282, 789],
+        4: [369, 788],
+        5: [453, 790],
+        6: [526, 788],
+        7: [613, 787],
+    }
 };
 
-/* ===== 数学工具 ===== */
+// 方案 B：720 × 1612（新）
+const BASE_B = {
+    w: 720,
+    h: 1612,
+    model: [184, 538],
+    paints: {
+        1: [114, 794],
+        2: [204, 791],
+        3: [278, 791],
+        4: [360, 793],
+        5: [443, 791],
+        6: [521, 790],
+        7: [606, 791],
+    }
+};
+
+/* ========= 数学工具 ========= */
 
 const rgbToHex = ([r,g,b]) =>
     "#" + [r,g,b].map(v => v.toString(16).padStart(2,"0")).join("");
@@ -167,7 +177,7 @@ const mixRGB = colors => {
     ];
 };
 
-/* ===== 主流程 ===== */
+/* ========= 主流程 ========= */
 
 const fileInput = document.getElementById("fileInput");
 const canvas = document.getElementById("canvas");
@@ -188,8 +198,13 @@ function analyze(img) {
     canvas.height = img.height;
     ctx.drawImage(img, 0, 0);
 
-    const sx = img.width / BASE_WIDTH;
-    const sy = img.height / BASE_HEIGHT;
+    const base =
+        (img.width === 720 && img.height === 1612)
+        ? BASE_B
+        : BASE_A;
+
+    const sx = img.width / base.w;
+    const sy = img.height / base.h;
 
     const getPixel = (x,y) => {
         const d = ctx.getImageData(
@@ -200,11 +215,11 @@ function analyze(img) {
         return [d[0], d[1], d[2]];
     };
 
-    const modelRGB = getPixel(...MODEL_POINT);
+    const modelRGB = getPixel(...base.model);
 
     const paints = {};
-    for (const i in PAINT_POINTS) {
-        paints[i] = getPixel(...PAINT_POINTS[i]);
+    for (const i in base.paints) {
+        paints[i] = getPixel(...base.paints[i]);
     }
 
     let best = null;
@@ -220,20 +235,29 @@ function analyze(img) {
         }
     }
 
-    render(modelRGB, paints, best);
+    render(modelRGB, paints, best, base === BASE_B);
 }
 
-function render(modelRGB, paints, best) {
+function render(modelRGB, paints, best, isB) {
     const mixedInt = best.mixed.map(v => Math.round(v));
 
     output.innerHTML = `
-        <div class="section-title">模特颜色</div>
+        <div class="section-title">目标颜色</div>
         <div class="row">
             <div class="color-box" style="background:${rgbToHex(modelRGB)}"></div>
             <div class="info">
                 RGB ${modelRGB.join(", ")}<br>
                 HEX <code>${rgbToHex(modelRGB)}</code>
             </div>
+        </div>
+
+        <hr>
+
+        <div class="section-title">颜料色板（7 种）</div>
+        <div class="palette-row">
+            ${Object.values(paints).map(c =>
+                `<div class="color-box" style="background:${rgbToHex(c)}"></div>`
+            ).join("")}
         </div>
 
         <hr>
