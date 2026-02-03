@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Chat DB Viewer</title>
+
+<style>
+:root{
+  --bg:#0b1220;
+  --panel:#0f1b2d;
+  --text:#e6eefc;
+  --muted:#9fb2d0;
+  --bubble-left:#1a2a42;
+  --bubble-right:#1f6b3a;
+  --system:#24344f;
+  --accent:#61dafb;
+  --border:#1c2b44;
+}
+
+/* ===== base ===== */
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
+               "PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--bg);
+  color:var(--text);
+}
+
+/* ===== header ===== */
+header{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  background:#0d1728;
+  border-bottom:1px solid var(--border);
+  position:sticky;
+  top:0;
+  z-index:10;
+}
+header .title{
+  font-size:14px;
+  color:var(--accent);
+  font-weight:600;
+}
+header .spacer{flex:1}
+header input[type=file]{
+  color:var(--muted);
+  font-size:12px;
+}
+header select{
+  background:var(--panel);
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:4px 6px;
+  font-size:12px;
+}
+
+/* ===== layout ===== */
+.layout{
+  display:grid;
+  grid-template-columns: 360px 1fr;
+  height: calc(100vh - 52px);
+}
+
+/* ===== sidebar ===== */
+aside{
+  background:rgba(15,27,45,.65);
+  border-right:1px solid var(--border);
+  overflow:auto;
+  padding:10px;
+}
+
+/* ===== tree ===== */
+details{
+  border:1px solid rgba(28,43,68,.55);
+  border-radius:10px;
+  margin:8px 0;
+  background:rgba(15,27,45,.35);
+}
+summary{
+  cursor:pointer;
+  padding:10px 12px;
+  color:var(--accent);
+  font-weight:600;
+  list-style:none;
+}
+summary::-webkit-details-marker{display:none}
+.node{padding:6px 10px 12px 10px}
+
+.leaf{
+  border:1px solid rgba(28,43,68,.55);
+  border-radius:10px;
+  padding:10px;
+  margin:10px 0;
+  background:rgba(11,18,32,.4);
+  cursor:pointer;
+}
+.leaf:hover{outline:1px solid rgba(97,218,251,.35)}
+.leaf .t{
+  font-size:12px;
+  color:#cfe2ff;
+  margin-bottom:4px;
+}
+.leaf .s{
+  font-size:13px;
+  color:var(--muted);
+  white-space:normal;   /* ✅ 不截断 */
+  word-break:break-word;
+  line-height:1.35;
+}
+
+/* ===== main ===== */
+main{
+  overflow:auto;
+  padding:12px;
+}
+.chat{
+  max-width:900px;
+  margin:0 auto;
+}
+.chat-title{
+  font-size:13px;
+  color:var(--muted);
+  margin-bottom:12px;
+}
+
+/* ===== message ===== */
+.msg{
+  display:flex;
+  margin:10px 0;
+}
+.msg.left{justify-content:flex-start}
+.msg.right{justify-content:flex-end}
+
+.box{max-width:80%}
+.name{
+  font-size:12px;
+  color:var(--accent);
+  margin-bottom:4px;
+}
+.bubble{
+  padding:10px 12px;
+  border-radius:14px;
+  line-height:1.3;
+  word-break:break-word;
+}
+.left .bubble{background:var(--bubble-left)}
+.right .bubble{background:var(--bubble-right)}
+.meta{
+  font-size:11px;
+  color:rgba(230,238,252,.6);
+  margin-top:4px;
+}
+
+.system{
+  text-align:center;
+  margin:14px 0;
+  font-size:12px;
+}
+.system span{
+  background:rgba(36,52,79,.8);
+  border:1px solid rgba(28,43,68,.6);
+  padding:6px 10px;
+  border-radius:999px;
+}
+
+/* ===== mobile ===== */
+.menu-btn{
+  display:none;
+  font-size:18px;
+  background:none;
+  border:none;
+  color:var(--accent);
+}
+
+@media (max-width: 768px){
+  .layout{
+    grid-template-columns: 1fr;
+  }
+  aside{
+    position:fixed;
+    top:52px;
+    left:0;
+    bottom:0;
+    width:85%;
+    max-width:360px;
+    transform:translateX(-100%);
+    transition:.25s;
+    z-index:20;
+    background:#0f1b2d;
+  }
+  aside.show{transform:translateX(0)}
+  .menu-btn{display:inline}
+  .box{max-width:92%}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <button class="menu-btn" id="menuBtn">☰</button>
+  <div class="title">Chat DB Viewer</div>
+  <div class="spacer"></div>
+  <input id="file" type="file" accept=".db"/>
+  <select id="selfSelect" disabled></select>
+</header>
+
+<div class="layout">
+  <aside id="sidebar">
+    <div id="tree"></div>
+  </aside>
+
+  <main>
+    <div class="chat">
+      <div class="chat-title" id="chatTitle"></div>
+      <div id="chat"></div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js"></script>
+<script>
+let SQL, db;
+const treeEl = document.getElementById('tree');
+const chatEl = document.getElementById('chat');
+const chatTitleEl = document.getElementById('chatTitle');
+const sidebar = document.getElementById('sidebar');
+document.getElementById('menuBtn').onclick=()=>sidebar.classList.toggle('show');
+
+function ts2d(ts){ if(ts<1e12) ts*=1000; return new Date(ts); }
+function pad(n){return n<10?'0'+n:n}
+
+function q(sql,p=[]){
+  const s=db.prepare(sql); s.bind(p);
+  const r=[]; while(s.step()) r.push(s.getAsObject());
+  s.free(); return r;
+}
+
+function buildTree(){
+  const sessions=q(`SELECT id,start_ts,summary FROM chat_session ORDER BY start_ts`);
+  const tree={};
+
+  sessions.forEach(s=>{
+    const d=ts2d(s.start_ts);
+    const y=d.getFullYear();
+    const md=`${d.getMonth()+1}/${d.getDate()}`;
+    const hm=`${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    tree[y]??={}; tree[y][md]??={}; tree[y][md][hm]??=[];
+    tree[y][md][hm].push(s);
+  });
+
+  treeEl.innerHTML='';
+  Object.keys(tree).forEach(y=>{
+    const yd=document.createElement('details'); yd.open=true;
+    yd.innerHTML=`<summary>${y}</summary>`;
+    const yn=document.createElement('div'); yn.className='node';
+
+    Object.keys(tree[y]).forEach(md=>{
+      const dd=document.createElement('details');
+      dd.innerHTML=`<summary>${md}</summary>`;
+      const dn=document.createElement('div'); dn.className='node';
+
+      Object.keys(tree[y][md]).forEach(hm=>{
+        tree[y][md][hm].forEach(s=>{
+          const l=document.createElement('div');
+          l.className='leaf';
+          l.innerHTML=`<div class="t">${hm}</div><div class="s">${s.summary||'(no summary)'}</div>`;
+          l.onclick=()=>loadSession(s.id);
+          dn.appendChild(l);
+        });
+      });
+
+      dd.appendChild(dn); yn.appendChild(dd);
+    });
+
+    yd.appendChild(yn); treeEl.appendChild(yd);
+  });
+}
+
+function loadSession(id){
+  sidebar.classList.remove('show');
+  chatEl.innerHTML='';
+  const msgs=q(`
+    SELECT m.ts,m.content,m.type,m.sender_account_name,m.sender_id
+    FROM message_context mc
+    JOIN message m ON m.id=mc.message_id
+    WHERE mc.session_id=?
+    ORDER BY m.ts
+  `,[id]);
+
+  msgs.forEach(m=>{
+    if(m.type===81){
+      chatEl.innerHTML+=`<div class="system"><span>${m.content}</span></div>`;
+      return;
+    }
+    const side=m.sender_id==window.selfId?'right':'left';
+    chatEl.innerHTML+=`
+      <div class="msg ${side}">
+        <div class="box">
+          <div class="name">${m.sender_account_name||''}</div>
+          <div class="bubble">${m.content||''}</div>
+          <div class="meta">${pad(ts2d(m.ts).getHours())}:${pad(ts2d(m.ts).getMinutes())}</div>
+        </div>
+      </div>`;
+  });
+}
+
+document.getElementById('file').onchange=async e=>{
+  if(!SQL) SQL=await initSqlJs({locateFile:f=>`https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${f}`});
+  const buf=await e.target.files[0].arrayBuffer();
+  db=new SQL.Database(new Uint8Array(buf));
+  window.selfId=q(`SELECT sender_id FROM message GROUP BY sender_id ORDER BY COUNT(*) DESC LIMIT 1`)[0]?.sender_id;
+  buildTree();
+};
+</script>
+</body>
+</html>
