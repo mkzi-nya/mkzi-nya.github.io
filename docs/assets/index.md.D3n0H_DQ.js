@@ -1,0 +1,1 @@
+import{_ as t,o as a,c as n,j as r}from"./chunks/framework.DlD7sw_h.js";const _=JSON.parse('{"title":"","description":"","frontmatter":{},"headers":[],"relativePath":"index.md","filePath":"index.md"}'),o={name:"index.md"};function s(d,e,i,c,p,l){return a(),n("div",null,e[0]||(e[0]=[r("p",null,"喵",-1)]))}const f=t(o,[["render",s]]);export{_ as __pageData,f as default};
