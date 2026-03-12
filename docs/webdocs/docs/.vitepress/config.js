@@ -10,7 +10,7 @@ export default defineConfig({
     nav: [{ text: 'Home', link: '/index' }],
     sidebar: [
       { 
-        text: 'Milthm Text', 
+        text: 'Text', 
         collapsible: true,
         collapsed: false,
         items: [
@@ -19,7 +19,7 @@ export default defineConfig({
             collapsible: true,
             collapsed: false,
             items: [
-            { text: 'meow', link: 'https://google.com' }
+            { text: '蜀道の難', link: 'yuwf/udnj_jp' }
             ]
           }
         ]
