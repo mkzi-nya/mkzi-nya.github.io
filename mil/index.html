@@ -491,8 +491,271 @@ espgnbm0123456789{}[]()<,>
   </div>
 
   <script>
-    // 核心计算函数
 function calculateScore(input) {
+  input = String(input).toLowerCase();
+  const noteAmount = input.length;
+
+  const emptyResult = {
+    noteAmount: 0,
+    maxCombo: 0,
+    finalScore: 0,
+    counts: { e: 0, p: 0, g: 0, n: 0, b: 0, m: 0 },
+    comboMult: 0,
+    totalAccScore: 0,
+    totalComboScore: 0,
+    bMax: 0
+  };
+  if (!noteAmount) return emptyResult;
+
+  const bMax = Math.min(192, Math.max((noteAmount * 12 / 50) | 0, 1));
+  const gCap = Math.min(128, Math.max((noteAmount * 8 / 50) | 0, 1));
+  const nCap = Math.min(96,  Math.max((noteAmount * 6 / 50) | 0, 1));
+  const bCap = Math.min(64,  Math.max((noteAmount * 5 / 50) | 0, 1));
+  const mCap = Math.min(64,  Math.max((noteAmount * 4 / 50) | 0, 1));
+
+  const counts = { e: 0, p: 0, g: 0, n: 0, b: 0, m: 0 };
+  const scoreMap = { e: 1000000, p: 990000, g: 600000, n: 300000, b: 150000, m: 0 };
+
+  // 小数据：逐 note 计算并输出中间分数
+  if (noteAmount < 100000) {
+    let totalAccScore = 0;
+    let totalComboScore = 0;
+    let maxCombo = 0;
+    let currentCombo = 0;
+    let prevLoss = 0;
+    let currentComboScore = bMax;
+    const realtimeScores = [];
+
+    for (let i = 0; i < noteAmount; i++) {
+      const judge = input[i];
+      if (!(judge in scoreMap)) continue;
+      const n = i + 1;
+
+      counts[judge]++;
+      totalAccScore += scoreMap[judge];
+
+      if (judge === 'e' || judge === 'p' || judge === 'g' || judge === 'n') {
+        currentCombo++;
+        if (currentCombo > maxCombo) maxCombo = currentCombo;
+      } else {
+        currentCombo = 0;
+      }
+
+      switch (judge) {
+        case 'e':
+          currentComboScore += 2;
+          if (currentComboScore > bMax) currentComboScore = bMax;
+          break;
+        case 'p':
+          currentComboScore += 1;
+          if (currentComboScore > bMax) currentComboScore = bMax;
+          break;
+        case 'g':
+          if (currentComboScore > gCap) currentComboScore = gCap;
+          break;
+        case 'n':
+          if (currentComboScore > nCap) currentComboScore = nCap;
+          break;
+        case 'b':
+          if (currentComboScore > bCap) currentComboScore = bCap;
+          break;
+        case 'm':
+          if (currentComboScore > mCap) currentComboScore = mCap;
+          break;
+      }
+
+      totalComboScore += currentComboScore;
+
+      if (judge !== 'e' && (noteAmount - n) * 2 < bMax - currentComboScore) {
+        const tillFull = Math.ceil((bMax - currentComboScore) / 2);
+        totalComboScore += prevLoss;
+        prevLoss = (
+          2 * (bMax - currentComboScore) -
+          2 * (noteAmount + 1 - n + tillFull)
+        ) * (n + tillFull - noteAmount) / 2;
+        totalComboScore -= prevLoss;
+        if (totalComboScore < 0) totalComboScore = 0;
+      }
+
+      const apBonusNow = /^[ep]+$/i.test(input.slice(0, n)) ? 5000 * n / noteAmount : 0;
+      const accScoreNow = totalAccScore / noteAmount;
+      const comboMultNow = totalComboScore / (n * bMax);
+      const comboBonusNow = 5000 * maxCombo / noteAmount;
+      const finalScoreNow =
+        Math.floor(accScoreNow * (0.4 + 0.6 * comboMultNow)) +
+        Math.floor(comboBonusNow) +
+        Math.floor(apBonusNow);
+
+      realtimeScores.push({ index: n, score: finalScoreNow });
+    }
+
+    let devBox = document.getElementById("devBox");
+    if (!devBox) {
+      devBox = document.createElement("div");
+      devBox.id = "devBox";
+      devBox.style.whiteSpace = "pre";
+      devBox.style.background = "#222";
+      devBox.style.color = "#0f0";
+      devBox.style.padding = "10px";
+      devBox.style.marginTop = "20px";
+      devBox.style.border = "1px solid #333";
+      document.body.appendChild(devBox);
+    }
+
+    let logText = "当前判定序列大小\t实时分数\n";
+    for (let i = 0; i < realtimeScores.length; i++) {
+      logText += realtimeScores[i].index + "\t" + realtimeScores[i].score + "\n";
+    }
+    devBox.textContent = logText;
+
+    const apBonus = /^[ep]+$/i.test(input) ? 5000 : 0;
+    const accScore = totalAccScore / noteAmount;
+    const comboMult = totalComboScore / (noteAmount * bMax);
+    const comboBonus = 5000 * maxCombo / noteAmount;
+    const finalScore =
+      Math.floor(accScore * (0.4 + 0.6 * comboMult)) +
+      Math.floor(comboBonus) +
+      apBonus;
+
+    return {
+      noteAmount,
+      maxCombo,
+      finalScore,
+      counts,
+      comboMult,
+      totalAccScore,
+      totalComboScore,
+      bMax
+    };
+  }
+
+  // 大数据：只算最终分数，按段优化
+  let totalAccScore = 0;
+  let totalComboScore = 0;
+  let currentComboScore = bMax;
+  let maxCombo = 0;
+  let combo = 0;
+  let allEP = true;
+
+  let devBox = document.getElementById("devBox");
+  if (devBox) devBox.textContent = "判定数量过大，已跳过中间分数输出，仅计算最终分数。";
+
+  for (let i = 0; i < noteAmount;) {
+    const c = input.charCodeAt(i);
+    let j = i + 1;
+    while (j < noteAmount && input.charCodeAt(j) === c) j++;
+    const len = j - i;
+
+    switch (c) {
+      case 101: { // e
+        counts.e += len;
+        totalAccScore += 1000000 * len;
+        combo += len;
+        if (combo > maxCombo) maxCombo = combo;
+
+        if (currentComboScore < bMax) {
+          const u = Math.min(len, ((bMax - 1 - currentComboScore) / 2) | 0);
+          totalComboScore += u ? u * (2 * (currentComboScore + 2) + (u - 1) * 2) / 2 : 0;
+          totalComboScore += (len - u) * bMax;
+        } else {
+          totalComboScore += len * bMax;
+        }
+        currentComboScore += len * 2;
+        if (currentComboScore > bMax) currentComboScore = bMax;
+        break;
+      }
+
+      case 112: { // p
+        counts.p += len;
+        totalAccScore += 990000 * len;
+        combo += len;
+        if (combo > maxCombo) maxCombo = combo;
+
+        if (currentComboScore < bMax) {
+          const u = Math.min(len, bMax - 1 - currentComboScore);
+          totalComboScore += u ? u * (2 * (currentComboScore + 1) + (u - 1)) / 2 : 0;
+          totalComboScore += (len - u) * bMax;
+        } else {
+          totalComboScore += len * bMax;
+        }
+        currentComboScore += len;
+        if (currentComboScore > bMax) currentComboScore = bMax;
+        break;
+      }
+
+      case 103: // g
+        counts.g += len;
+        totalAccScore += 600000 * len;
+        combo += len;
+        if (combo > maxCombo) maxCombo = combo;
+        if (currentComboScore > gCap) currentComboScore = gCap;
+        totalComboScore += len * currentComboScore;
+        allEP = false;
+        break;
+
+      case 110: // n
+        counts.n += len;
+        totalAccScore += 300000 * len;
+        combo += len;
+        if (combo > maxCombo) maxCombo = combo;
+        if (currentComboScore > nCap) currentComboScore = nCap;
+        totalComboScore += len * currentComboScore;
+        allEP = false;
+        break;
+
+      case 98: // b
+        counts.b += len;
+        totalAccScore += 150000 * len;
+        combo = 0;
+        if (currentComboScore > bCap) currentComboScore = bCap;
+        totalComboScore += len * currentComboScore;
+        allEP = false;
+        break;
+
+      case 109: // m
+        counts.m += len;
+        combo = 0;
+        if (currentComboScore > mCap) currentComboScore = mCap;
+        totalComboScore += len * currentComboScore;
+        allEP = false;
+        break;
+
+      default:
+        combo = 0;
+        allEP = false;
+        break;
+    }
+
+    i = j;
+  }
+
+  if (currentComboScore < bMax) {
+    totalComboScore += (1 - (bMax - currentComboScore - 1) ** 2) / 4;
+    if (totalComboScore < 0) totalComboScore = 0;
+  }
+
+  const apBonus = allEP ? 5000 : 0;
+  const accScore = totalAccScore / noteAmount;
+  const comboMult = totalComboScore / (noteAmount * bMax);
+  const comboBonus = 5000 * maxCombo / noteAmount;
+  const finalScore =
+    Math.floor(accScore * (0.4 + 0.6 * comboMult)) +
+    Math.floor(comboBonus) +
+    apBonus;
+
+  return {
+    noteAmount,
+    maxCombo,
+    finalScore,
+    counts,
+    comboMult,
+    totalAccScore,
+    totalComboScore,
+    bMax
+  };
+}
+    // 核心计算函数
+function calculateScore_(input) {
   const noteAmount = input.length;
   const bMax = Math.min(192, Math.max(Math.floor(noteAmount * 12 / 50), 1));
   const params = {
