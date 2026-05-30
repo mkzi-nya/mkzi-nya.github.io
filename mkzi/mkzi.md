@@ -11,4 +11,4 @@
     milthm：[13.51](./mkzi/mil.avif)(pc)，单指10.8(pc,已退)  
     arcaea：[12.25](./mkzi/arc.avif)(掉下来了)  
     当前最高成就：单手ieo/白复生 at fc  
-- some apps：[Home](./home.html)，[Milthm calc](https://mkzi-nya.github.io/milthm-calculator-web/)，[guess](./guess/)  
+- some apps：[Home](./home.html)，[Milthm calc](https://mkzi-nya.github.io/milthm-calculator-web/)，[guess](./guess/), [2048](https://mkzi-nya.github.io/2048/), [图片转mc](https://mkzi-nya.github.io/2048/), [奇奇怪怪的转换器](https://mkzi-nya.github.io/wtf/)
