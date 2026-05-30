@@ -4,7 +4,7 @@
 - 年龄：17
 - 特长：  
   没什么特长  
-- 兴趣爱好：爱整活，看小说，打打休闲的游戏(?，~看女装~\~
+- 兴趣爱好：爱整活，看小说，打打休闲的游戏(?，~~看女装\~~~
 - 输入法：[自造码表](https://github.com/mkzi-nya/heom.git)（简），[倉頡](https://github.com/Jackchows/Cangjie5)（繁）
 - 曾练过的一些音游：phigros,milthm,notanote,arcaea,cytus  
     phigros：16.80(已退)，单手[15.72](./mkzi/phi.avif)(已退)  
