@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>6 Octave Pure Tone Keyboard</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      background: #111;
+      color: white;
+      font-family: system-ui, sans-serif;
+      touch-action: none;
+      overflow-x: hidden;
+    }
+
+    body {
+      padding: 10px;
+    }
+
+    h1 {
+      margin: 4px 0 12px;
+      text-align: center;
+      font-size: 19px;
+      font-weight: 600;
+    }
+
+    .piano {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .octave {
+      position: relative;
+      height: 88px;
+      background: #222;
+      border-radius: 14px;
+      padding: 6px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    }
+
+    .label {
+      position: absolute;
+      left: 10px;
+      top: 8px;
+      z-index: 5;
+      font-size: 12px;
+      color: #888;
+      pointer-events: none;
+    }
+
+    .white-keys {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      height: 100%;
+      gap: 3px;
+    }
+
+    .key {
+      touch-action: none;
+      cursor: pointer;
+    }
+
+    .key.white {
+      background: linear-gradient(#fff, #ddd);
+      color: #222;
+      border-radius: 0 0 10px 10px;
+      border: 1px solid #aaa;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 7px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .black-keys {
+      position: absolute;
+      inset: 6px;
+      pointer-events: none;
+    }
+
+    .key.black {
+      position: absolute;
+      top: 0;
+      width: 8.5%;
+      height: 58%;
+      background: linear-gradient(#333, #000);
+      color: white;
+      border-radius: 0 0 8px 8px;
+      z-index: 10;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 6px;
+      font-size: 11px;
+      pointer-events: auto;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+    }
+
+    .key.active {
+      filter: brightness(1.35);
+      transform: translateY(1px);
+    }
+
+    .black[data-note="C#"] {
+      left: calc(100% / 7 * 1 - 4.25%);
+    }
+
+    .black[data-note="D#"] {
+      left: calc(100% / 7 * 2 - 4.25%);
+    }
+
+    .black[data-note="F#"] {
+      left: calc(100% / 7 * 4 - 4.25%);
+    }
+
+    .black[data-note="G#"] {
+      left: calc(100% / 7 * 5 - 4.25%);
+    }
+
+    .black[data-note="A#"] {
+      left: calc(100% / 7 * 6 - 4.25%);
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 8px;
+      }
+
+      h1 {
+        font-size: 17px;
+        margin-bottom: 10px;
+      }
+
+      .piano {
+        gap: 8px;
+      }
+
+      .octave {
+        height: 80px;
+      }
+
+      .key.white {
+        font-size: 12px;
+        padding-bottom: 6px;
+      }
+
+      .key.black {
+        font-size: 10px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <h1>6 行纯音键盘</h1>
+
+  <div class="piano" id="piano"></div>
+
+  <script>
+    const piano = document.getElementById("piano");
+
+    const whiteNotes = ["C", "D", "E", "F", "G", "A", "B"];
+    const blackNotes = ["C#", "D#", "F#", "G#", "A#"];
+
+    const noteOffsets = {
+      "C": 0,
+      "C#": 1,
+      "D": 2,
+      "D#": 3,
+      "E": 4,
+      "F": 5,
+      "F#": 6,
+      "G": 7,
+      "G#": 8,
+      "A": 9,
+      "A#": 10,
+      "B": 11
+    };
+
+    const startOctave = 2;
+    const rows = 6;
+
+    // 总体音量。低音会额外补偿，高音会明显压低。
+    const masterVolume = 0.95;
+
+    let audioCtx = null;
+    let masterGain = null;
+    let limiter = null;
+
+    const activeVoices = new Map();
+
+    function midiToFreq(midi) {
+      return 440 * Math.pow(2, (midi - 69) / 12);
+    }
+
+    function noteToMidi(note, octave) {
+      return 12 * (octave + 1) + noteOffsets[note];
+    }
+
+    function loudnessCompensation(freq) {
+      // 低音再增强，最高音区稍微压低。
+      // 注意：手机/小音箱对 60~150Hz 很弱，所以低音区需要明显更高的电平。
+      if (freq < 100) return 2.35;
+      if (freq < 140) return 2.05;
+      if (freq < 200) return 1.70;
+      if (freq < 300) return 1.18;
+      if (freq < 440) return 0.86;
+      if (freq < 700) return 0.54;
+      if (freq < 1000) return 0.34;
+      if (freq < 1500) return 0.20;
+      return 0.11;
+    }
+
+    function bassHarmonicAmount(freq) {
+      // 增强 2、3、4 次谐波，让小扬声器也能“听起来有低音”。
+      // 这不是单纯变大声，而是增加低音的可感知存在感。
+      if (freq < 100) return { second: 1.45, third: 0.98, fourth: 0.52 };
+      if (freq < 150) return { second: 1.25, third: 0.78, fourth: 0.34 };
+      if (freq < 220) return { second: 0.92, third: 0.50, fourth: 0.18 };
+      if (freq < 330) return { second: 0.38, third: 0.16, fourth: 0.00 };
+      return { second: 0, third: 0, fourth: 0 };
+    }
+
+    function ensureAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        masterGain = audioCtx.createGain();
+        limiter = audioCtx.createDynamicsCompressor();
+
+        masterGain.gain.value = 1.85;
+
+        limiter.threshold.value = -8;
+        limiter.knee.value = 6;
+        limiter.ratio.value = 12;
+        limiter.attack.value = 0.004;
+        limiter.release.value = 0.12;
+
+        masterGain.connect(limiter);
+        limiter.connect(audioCtx.destination);
+      }
+
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+    }
+
+    function voiceId(note, octave, pointerId) {
+      return `${note}${octave}_${pointerId}`;
+    }
+
+    function rampGainTo(gainNode, value, now, attack) {
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(value, now + attack);
+    }
+
+    function fadeOutGain(gainNode, now, release) {
+      if (!gainNode) return;
+
+      gainNode.gain.cancelScheduledValues(now);
+      gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+      gainNode.gain.linearRampToValueAtTime(0, now + release);
+    }
+
+    function safeStopOsc(osc, stopTime) {
+      if (!osc) return;
+
+      try {
+        osc.stop(stopTime);
+      } catch (_) {
+        // ignore already-stopped oscillator
+      }
+    }
+
+    function startNote(note, octave, pointerId) {
+      ensureAudioContext();
+
+      const id = voiceId(note, octave, pointerId);
+
+      if (activeVoices.has(id)) {
+        return;
+      }
+
+      const midi = noteToMidi(note, octave);
+      const freq = midiToFreq(midi);
+
+      const osc = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const osc3 = audioCtx.createOscillator();
+      const osc4 = audioCtx.createOscillator();
+
+      const gain = audioCtx.createGain();
+      const gain2 = audioCtx.createGain();
+      const gain3 = audioCtx.createGain();
+      const gain4 = audioCtx.createGain();
+
+      osc.type = "sine";
+      osc2.type = "sine";
+      osc3.type = "sine";
+      osc4.type = "sine";
+
+      osc.frequency.value = freq;
+      osc2.frequency.value = freq * 2;
+      osc3.frequency.value = freq * 3;
+      osc4.frequency.value = freq * 4;
+
+      const now = audioCtx.currentTime;
+      const attack = freq > 700 ? 0.055 : 0.025;
+      const noteVolume = loudnessCompensation(freq);
+      const harmonic = bassHarmonicAmount(freq);
+
+      rampGainTo(gain, noteVolume, now, attack);
+      rampGainTo(gain2, noteVolume * harmonic.second, now, attack);
+      rampGainTo(gain3, noteVolume * harmonic.third, now, attack);
+      rampGainTo(gain4, noteVolume * harmonic.fourth, now, attack);
+
+      osc.connect(gain);
+      osc2.connect(gain2);
+      osc3.connect(gain3);
+      osc4.connect(gain4);
+
+      gain.connect(masterGain);
+      gain2.connect(masterGain);
+      gain3.connect(masterGain);
+      gain4.connect(masterGain);
+
+      osc.start(now);
+      osc2.start(now);
+      osc3.start(now);
+      osc4.start(now);
+
+      activeVoices.set(id, {
+        osc,
+        osc2,
+        osc3,
+        osc4,
+        gain,
+        gain2,
+        gain3,
+        gain4
+      });
+    }
+
+    function stopNote(note, octave, pointerId) {
+      if (!audioCtx) return;
+
+      const id = voiceId(note, octave, pointerId);
+      const voice = activeVoices.get(id);
+
+      if (!voice) {
+        return;
+      }
+
+      const now = audioCtx.currentTime;
+      const release = 0.04;
+      const stopTime = now + release + 0.01;
+
+      fadeOutGain(voice.gain, now, release);
+      fadeOutGain(voice.gain2, now, release);
+      fadeOutGain(voice.gain3, now, release);
+      fadeOutGain(voice.gain4, now, release);
+
+      safeStopOsc(voice.osc, stopTime);
+      safeStopOsc(voice.osc2, stopTime);
+      safeStopOsc(voice.osc3, stopTime);
+      safeStopOsc(voice.osc4, stopTime);
+
+      activeVoices.delete(id);
+    }
+
+    function stopAllNotes() {
+      if (!audioCtx) return;
+
+      const now = audioCtx.currentTime;
+      const release = 0.04;
+      const stopTime = now + release + 0.01;
+
+      for (const [id, voice] of activeVoices) {
+        fadeOutGain(voice.gain, now, release);
+        fadeOutGain(voice.gain2, now, release);
+        fadeOutGain(voice.gain3, now, release);
+        fadeOutGain(voice.gain4, now, release);
+
+        safeStopOsc(voice.osc, stopTime);
+        safeStopOsc(voice.osc2, stopTime);
+        safeStopOsc(voice.osc3, stopTime);
+        safeStopOsc(voice.osc4, stopTime);
+
+        activeVoices.delete(id);
+      }
+
+      document.querySelectorAll(".key.active").forEach(key => {
+        key.classList.remove("active");
+      });
+    }
+
+    function addKeyEvents(key, note, octave) {
+      key.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+
+        key.setPointerCapture(e.pointerId);
+        key.classList.add("active");
+
+        startNote(note, octave, e.pointerId);
+      });
+
+      key.addEventListener("pointerup", (e) => {
+        e.preventDefault();
+
+        key.classList.remove("active");
+        stopNote(note, octave, e.pointerId);
+      });
+
+      key.addEventListener("pointercancel", (e) => {
+        key.classList.remove("active");
+        stopNote(note, octave, e.pointerId);
+      });
+
+      key.addEventListener("lostpointercapture", (e) => {
+        key.classList.remove("active");
+        stopNote(note, octave, e.pointerId);
+      });
+    }
+
+    function createOctave(octave) {
+      const octaveEl = document.createElement("div");
+      octaveEl.className = "octave";
+
+      const label = document.createElement("div");
+      label.className = "label";
+      label.textContent = `Octave ${octave}`;
+
+      const whiteLayer = document.createElement("div");
+      whiteLayer.className = "white-keys";
+
+      const blackLayer = document.createElement("div");
+      blackLayer.className = "black-keys";
+
+      whiteNotes.forEach(note => {
+        const key = document.createElement("div");
+
+        key.className = "key white";
+        key.textContent = `${note}${octave}`;
+
+        addKeyEvents(key, note, octave);
+
+        whiteLayer.appendChild(key);
+      });
+
+      blackNotes.forEach(note => {
+        const key = document.createElement("div");
+
+        key.className = "key black";
+        key.dataset.note = note;
+        key.textContent = `${note}${octave}`;
+
+        addKeyEvents(key, note, octave);
+
+        blackLayer.appendChild(key);
+      });
+
+      octaveEl.appendChild(label);
+      octaveEl.appendChild(whiteLayer);
+      octaveEl.appendChild(blackLayer);
+
+      return octaveEl;
+    }
+
+    for (let i = 0; i < rows; i++) {
+      const octave = startOctave + i;
+      piano.appendChild(createOctave(octave));
+    }
+
+    window.addEventListener("blur", stopAllNotes);
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        stopAllNotes();
+      }
+    });
+  </script>
+</body>
+</html>
