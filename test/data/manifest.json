@@ -1,0 +1,24 @@
+{
+  "quizIds": [
+    "SAS",
+    "SDS",
+    "SCL_90",
+    "MMPI",
+    "PDQ4",
+    "DES_II",
+    "GSES",
+    "HCL_32",
+    "PASS"
+  ],
+  "files": {
+    "SAS": "SAS.json",
+    "SDS": "SDS.json",
+    "SCL_90": "SCL_90.json",
+    "MMPI": "MMPI.json",
+    "PDQ4": "PDQ4.json",
+    "DES_II": "DES_II.json",
+    "GSES": "GSES.json",
+    "HCL_32": "HCL_32.json",
+    "PASS": "PASS.json"
+  }
+}
