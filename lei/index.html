@@ -1,0 +1,1646 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d1117" />
+  <title>暗色扫雷 · 概率推理</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0d1117;
+      --panel: #161b22;
+      --panel-2: #1f2630;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --danger: #ff5f68;
+      --success: #54e18a;
+      --warning: #f2cc60;
+      --cell-size: 34px;
+      --gap: 2px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 15% 0%, rgba(88,166,255,.10), transparent 32rem),
+        var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button, input { font: inherit; }
+
+    .app {
+      width: min(1100px, 100%);
+      margin: 0 auto;
+      padding: 14px max(12px, env(safe-area-inset-right)) calc(22px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    }
+
+    .titlebar {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(20px, 4vw, 30px);
+      letter-spacing: .02em;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: right;
+    }
+
+    .panel {
+      background: rgba(22, 27, 34, .94);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, .25);
+    }
+
+    .settings {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(92px, 1fr)) auto;
+      gap: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    label {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #0d1117;
+      color: var(--text);
+      padding: 8px 10px;
+      outline: none;
+    }
+
+    input[type="number"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(88,166,255,.14);
+    }
+
+    .btn {
+      min-height: 40px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #21262d;
+      color: var(--text);
+      padding: 8px 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .btn:hover { background: #2a313a; }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary { border-color: #1f6feb; background: #1f6feb; }
+    .btn.primary:hover { background: #2b7de9; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .new-game {
+      align-self: end;
+      white-space: nowrap;
+    }
+
+    .game-panel { overflow: hidden; }
+
+    .hud {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      background: #141920;
+    }
+
+    .metric {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric.right { justify-content: flex-end; }
+    .metric .label { color: var(--muted); font-size: 12px; }
+    .metric .value { font-weight: 800; min-width: 3ch; }
+
+    .face {
+      width: 42px;
+      height: 42px;
+      padding: 0;
+      border-radius: 10px;
+      font-size: 22px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .segmented {
+      display: inline-flex;
+      padding: 3px;
+      gap: 3px;
+      border: 1px solid var(--border);
+      background: #0d1117;
+      border-radius: 10px;
+    }
+
+    .mode-btn {
+      min-height: 34px;
+      border: 0;
+      border-radius: 7px;
+      padding: 6px 10px;
+      color: var(--muted);
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .mode-btn.active {
+      color: var(--text);
+      background: #30363d;
+    }
+
+    .infer-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 40px;
+      padding: 7px 11px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #21262d;
+      color: var(--text);
+      font-size: 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .infer-toggle:hover { background: #2a313a; }
+
+    .infer-toggle input {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+
+    .infer-status {
+      flex: 1 1 220px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .legend {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .dot.red { background: var(--danger); }
+    .dot.green { background: var(--success); }
+    .dot.mid { background: var(--warning); }
+
+    .board-wrap {
+      width: 100%;
+      overflow: auto;
+      overscroll-behavior: contain;
+      padding: 12px;
+      background: #0b0f14;
+      scrollbar-color: #30363d #0d1117;
+    }
+
+    .board {
+      display: grid;
+      gap: var(--gap);
+      width: max-content;
+      min-width: min-content;
+      margin: 0 auto;
+      touch-action: manipulation;
+      user-select: none;
+    }
+
+    .cell {
+      position: relative;
+      width: var(--cell-size);
+      height: var(--cell-size);
+      padding: 0;
+      border: 1px solid #38414d;
+      border-radius: max(4px, calc(var(--cell-size) * .15));
+      background: linear-gradient(145deg, #2b333e, #20262f);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      font-size: calc(var(--cell-size) * .52);
+      line-height: 1;
+      font-weight: 900;
+      cursor: pointer;
+      overflow: hidden;
+    }
+
+    .cell:hover { filter: brightness(1.10); }
+    .cell:active { transform: scale(.96); }
+
+    .cell.open {
+      border-color: #242b34;
+      background: #151a21;
+      cursor: default;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.015);
+    }
+
+    .cell.mine { background: #7b2630; }
+    .cell.exploded { background: #c93c49; }
+    .cell.wrong { background: #4a2026; color: #ff9ca5; }
+
+    .n1 { color: #66aaff; }
+    .n2 { color: #5ee18a; }
+    .n3 { color: #ff6b74; }
+    .n4 { color: #bc8cff; }
+    .n5 { color: #ff9e64; }
+    .n6 { color: #52d6d3; }
+    .n7 { color: #d8dee9; }
+    .n8 { color: #8b949e; }
+
+    .flag-icon {
+      position: absolute;
+      left: 3px;
+      top: 3px;
+      font-size: calc(var(--cell-size) * .35);
+      filter: drop-shadow(0 1px 1px rgba(0,0,0,.5));
+      z-index: 2;
+    }
+
+    .cell.flag-only .flag-icon {
+      position: static;
+      font-size: calc(var(--cell-size) * .50);
+    }
+
+    .prob {
+      display: grid;
+      place-items: center;
+      width: 100%;
+      height: 100%;
+      font-size: calc(var(--cell-size) * .38);
+      letter-spacing: -.04em;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 1px 2px #000;
+    }
+
+    .cell.risk-low { border-color: rgba(84,225,138,.44); background: rgba(24, 74, 48, .80); }
+    .cell.risk-low .prob { color: var(--success); }
+    .cell.risk-high { border-color: rgba(255,95,104,.44); background: rgba(91, 28, 35, .78); }
+    .cell.risk-high .prob { color: var(--danger); }
+    .cell.risk-mid { border-color: rgba(242,204,96,.44); background: rgba(84, 69, 25, .80); }
+    .cell.risk-mid .prob { color: var(--warning); }
+
+    .cell.certain-safe {
+      border-color: var(--success);
+      background: var(--success);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.16);
+    }
+
+    .cell.certain-mine {
+      border-color: var(--danger);
+      background: var(--danger);
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.14);
+    }
+
+    .help {
+      padding: 11px 13px 13px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+      border-top: 1px solid var(--border);
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: max(18px, env(safe-area-inset-bottom));
+      transform: translate(-50%, 16px);
+      background: rgba(22,27,34,.96);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 9px 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: .18s ease;
+      box-shadow: 0 12px 34px rgba(0,0,0,.38);
+      z-index: 20;
+      font-size: 13px;
+    }
+
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (max-width: 680px) {
+      .app { padding-top: 10px; }
+      .titlebar { align-items: flex-start; }
+      .subtitle { display: none; }
+      .settings { grid-template-columns: repeat(3, 1fr); }
+      .new-game { grid-column: 1 / -1; width: 100%; }
+      .toolbar { align-items: stretch; }
+      .segmented { flex: 1; }
+      .mode-btn { flex: 1; }
+      .infer-toggle { flex: 1; justify-content: center; }
+      .infer-status { order: 3; flex-basis: 100%; }
+      .legend { order: 4; }
+      .board-wrap { padding: 8px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <div class="titlebar">
+      <h1>暗色扫雷</h1>
+    </div>
+
+    <section class="panel settings" aria-label="棋盘设置">
+      <label>行数
+        <input id="rowsInput" type="number" min="5" max="40" value="16" inputmode="numeric" />
+      </label>
+      <label>列数
+        <input id="colsInput" type="number" min="5" max="40" value="16" inputmode="numeric" />
+      </label>
+      <label>雷数
+        <input id="minesInput" type="number" min="1" value="40" inputmode="numeric" />
+      </label>
+      <button id="newGameBtn" class="btn primary new-game" type="button">新游戏</button>
+    </section>
+
+    <section class="panel game-panel">
+      <div class="hud">
+        <div class="metric">
+          <span class="label">剩余雷</span>
+          <span id="remainingValue" class="value">040</span>
+        </div>
+        <button id="faceBtn" class="btn face" type="button" aria-label="重新开始">🙂</button>
+        <div class="metric right">
+          <span class="label">时间</span>
+          <span id="timeValue" class="value">000</span>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="segmented" aria-label="手机点击模式">
+          <button class="mode-btn active" data-mode="open" type="button">翻开</button>
+          <button class="mode-btn" data-mode="flag" type="button">标记</button>
+        </div>
+        <label class="infer-toggle">
+          <input id="inferToggle" type="checkbox" checked />
+          <span>推理</span>
+        </label>
+        <div id="inferStatus" class="infer-status">推理不读取标记</div>
+        <div class="legend" aria-label="概率颜色说明">
+          <span class="dot green"></span>&lt;⅓
+          <span class="dot mid"></span>⅓–⅔
+          <span class="dot red"></span>&gt;⅔
+        </div>
+      </div>
+
+      <div class="board-wrap" id="boardWrap">
+        <div id="board" class="board" role="grid" aria-label="扫雷棋盘"></div>
+      </div>
+
+      <div class="help">左键翻开，右键或长按标记；点击已开启数字可连开。</div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const $ = (s) => document.querySelector(s);
+      const boardEl = $('#board');
+      const boardWrapEl = $('#boardWrap');
+      const rowsInput = $('#rowsInput');
+      const colsInput = $('#colsInput');
+      const minesInput = $('#minesInput');
+      const newGameBtn = $('#newGameBtn');
+      const faceBtn = $('#faceBtn');
+      const remainingValue = $('#remainingValue');
+      const timeValue = $('#timeValue');
+      const inferToggle = $('#inferToggle');
+      const inferStatus = $('#inferStatus');
+      const toastEl = $('#toast');
+      const modeButtons = [...document.querySelectorAll('.mode-btn')];
+      const STORAGE_KEY = 'minesweeper-inference-state-v4';
+
+      let rows = 16;
+      let cols = 16;
+      let mineCount = 40;
+      let cells = [];
+      let started = false;
+      let ended = false;
+      let won = false;
+      let openedCount = 0;
+      let flagCount = 0;
+      let elapsed = 0;
+      let timerId = null;
+      let inputMode = 'open';
+      let explodedIndex = -1;
+
+      let inferenceEnabled = true;
+      let inferenceActive = false;
+      let inferenceRequestId = 0;
+      let probabilities = new Map();
+      let certainties = new Map();
+      let inferenceMode = '';
+
+      let longPressTimer = null;
+      let longPressIndex = -1;
+      let suppressClickIndex = -1;
+      let toastTimer = null;
+      let scrollSaveTimer = null;
+
+      function clampInt(value, min, max) {
+        const n = Number.parseInt(value, 10);
+        if (!Number.isFinite(n)) return min;
+        return Math.min(max, Math.max(min, n));
+      }
+
+      function pad3(n) {
+        const sign = n < 0 ? '-' : '';
+        return sign + String(Math.abs(n)).padStart(3, '0');
+      }
+
+      function showToast(message) {
+        toastEl.textContent = message;
+        toastEl.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800);
+      }
+
+
+      function saveGameState() {
+        try {
+          const state = {
+            version: 5,
+            rows,
+            cols,
+            mineCount,
+            cells,
+            started,
+            ended,
+            won,
+            elapsed,
+            inputMode,
+            explodedIndex,
+            inferenceEnabled,
+            inferenceActive,
+            probabilities: [...probabilities],
+            certainties: [...certainties],
+            inferenceMode,
+            inferStatus: inferStatus.textContent,
+            scrollLeft: boardWrapEl.scrollLeft,
+            scrollTop: boardWrapEl.scrollTop
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (_) {
+          // 浏览器禁用存储时继续正常游戏。
+        }
+      }
+
+      function restoreGameState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return false;
+          const state = JSON.parse(raw);
+          if (!state || (state.version !== 4 && state.version !== 5)) return false;
+
+          const restoredRows = clampInt(state.rows, 5, 40);
+          const restoredCols = clampInt(state.cols, 5, 40);
+          const total = restoredRows * restoredCols;
+          const restoredMines = clampInt(state.mineCount, 1, total - 1);
+          if (!Array.isArray(state.cells) || state.cells.length !== total) return false;
+
+          const restoredCells = state.cells.map((cell) => ({
+            mine: Boolean(cell?.mine),
+            open: Boolean(cell?.open),
+            flag: Boolean(cell?.flag),
+            adjacent: clampInt(cell?.adjacent, 0, 8)
+          }));
+
+          const restoredStarted = Boolean(state.started);
+          const actualMineCount = restoredCells.reduce((sum, cell) => sum + (cell.mine ? 1 : 0), 0);
+          if ((restoredStarted && actualMineCount !== restoredMines) || (!restoredStarted && actualMineCount !== 0)) {
+            return false;
+          }
+
+          rows = restoredRows;
+          cols = restoredCols;
+          mineCount = restoredMines;
+          cells = restoredCells;
+          started = restoredStarted;
+          ended = Boolean(state.ended);
+          won = Boolean(state.won);
+          elapsed = clampInt(state.elapsed, 0, 999);
+          inputMode = state.inputMode === 'flag' ? 'flag' : 'open';
+          explodedIndex = Number.isInteger(state.explodedIndex) ? state.explodedIndex : -1;
+          openedCount = cells.reduce((sum, cell) => sum + (cell.open && !cell.mine ? 1 : 0), 0);
+          flagCount = cells.reduce((sum, cell) => sum + (cell.flag ? 1 : 0), 0);
+
+          probabilities = new Map(
+            Array.isArray(state.probabilities)
+              ? state.probabilities.filter(([index, value]) =>
+                  Number.isInteger(index) && index >= 0 && index < total &&
+                  Number.isFinite(value) && value >= 0 && value <= 1 &&
+                  !cells[index].open)
+              : []
+          );
+          certainties = new Map(
+            Array.isArray(state.certainties)
+              ? state.certainties.filter(([index, value]) =>
+                  Number.isInteger(index) && index >= 0 && index < total &&
+                  (value === 'safe' || value === 'mine') &&
+                  !cells[index].open)
+              : []
+          );
+          inferenceEnabled = state.version >= 5 ? Boolean(state.inferenceEnabled) : true;
+          inferenceActive = !ended && inferenceEnabled && Boolean(state.inferenceActive) && probabilities.size > 0;
+          inferenceMode = typeof state.inferenceMode === 'string' ? state.inferenceMode : '';
+          inferToggle.checked = inferenceEnabled;
+
+          rowsInput.value = String(rows);
+          colsInput.value = String(cols);
+          minesInput.max = String(total - 1);
+          minesInput.value = String(mineCount);
+          timeValue.textContent = pad3(elapsed);
+          inferStatus.textContent = inferenceActive && typeof state.inferStatus === 'string'
+            ? state.inferStatus
+            : (ended ? (won ? '完成' : '结束') : '推理不读取标记');
+
+          modeButtons.forEach((button) => {
+            button.classList.toggle('active', button.dataset.mode === inputMode);
+          });
+
+          buildBoardDom();
+          requestAnimationFrame(() => {
+            boardWrapEl.scrollLeft = Math.max(0, Number(state.scrollLeft) || 0);
+            boardWrapEl.scrollTop = Math.max(0, Number(state.scrollTop) || 0);
+          });
+
+          if (started && !ended && elapsed < 999) startTimer();
+          if (inferenceEnabled && !ended) queueMicrotask(refreshInference);
+          return true;
+        } catch (_) {
+          try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+          return false;
+        }
+      }
+
+      function indexOf(r, c) {
+        return r * cols + c;
+      }
+
+      function coordsOf(index) {
+        return [Math.floor(index / cols), index % cols];
+      }
+
+      function neighbors(index) {
+        const [r, c] = coordsOf(index);
+        const result = [];
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+              result.push(indexOf(nr, nc));
+            }
+          }
+        }
+        return result;
+      }
+
+      function resetTimer() {
+        clearInterval(timerId);
+        timerId = null;
+        elapsed = 0;
+        timeValue.textContent = '000';
+      }
+
+      function startTimer() {
+        if (timerId) return;
+        timerId = setInterval(() => {
+          elapsed = Math.min(999, elapsed + 1);
+          timeValue.textContent = pad3(elapsed);
+          if (elapsed % 5 === 0) saveGameState();
+          if (elapsed >= 999) {
+            clearInterval(timerId);
+            timerId = null;
+          }
+        }, 1000);
+      }
+
+      function updateMineInputLimit() {
+        const r = clampInt(rowsInput.value, 5, 40);
+        const c = clampInt(colsInput.value, 5, 40);
+        minesInput.max = String(Math.max(1, r * c - 1));
+        if (Number(minesInput.value) > Number(minesInput.max)) {
+          minesInput.value = minesInput.max;
+        }
+      }
+
+      function createEmptyBoard() {
+        cells = Array.from({ length: rows * cols }, () => ({
+          mine: false,
+          open: false,
+          flag: false,
+          adjacent: 0
+        }));
+      }
+
+      function placeMines(firstIndex) {
+        const preferredSafe = new Set([firstIndex, ...neighbors(firstIndex)]);
+        const safe = (cells.length - preferredSafe.size >= mineCount)
+          ? preferredSafe
+          : new Set([firstIndex]);
+
+        const candidates = [];
+        for (let i = 0; i < cells.length; i++) {
+          if (!safe.has(i)) candidates.push(i);
+        }
+
+        for (let i = candidates.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+        }
+
+        for (let i = 0; i < mineCount; i++) {
+          cells[candidates[i]].mine = true;
+        }
+
+        for (let i = 0; i < cells.length; i++) {
+          if (!cells[i].mine) {
+            cells[i].adjacent = neighbors(i).reduce((sum, n) => sum + (cells[n].mine ? 1 : 0), 0);
+          }
+        }
+      }
+
+      function updateCellSize() {
+        const available = Math.min(window.innerWidth - 28, 980);
+        const target = Math.floor((available - Math.max(0, cols - 1) * 2) / cols);
+        const size = Math.max(24, Math.min(36, target));
+        boardEl.style.setProperty('--cell-size', `${size}px`);
+      }
+
+      function buildBoardDom() {
+        boardEl.innerHTML = '';
+        boardEl.style.gridTemplateColumns = `repeat(${cols}, var(--cell-size))`;
+        boardEl.setAttribute('aria-rowcount', String(rows));
+        boardEl.setAttribute('aria-colcount', String(cols));
+
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < cells.length; i++) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'cell';
+          button.dataset.index = String(i);
+          button.setAttribute('role', 'gridcell');
+          button.setAttribute('aria-label', `第 ${Math.floor(i / cols) + 1} 行，第 ${i % cols + 1} 列，未开启`);
+          frag.appendChild(button);
+        }
+        boardEl.appendChild(frag);
+        updateCellSize();
+        renderAll();
+      }
+
+      function probabilityLabel(p, approximate = false) {
+        let value = Math.min(99, Math.max(0, Math.round(p * 100)));
+        // 近似结果不能把舍入后的 00/99 伪装成已经证明的结论。
+        if (approximate && value === 0) value = 1;
+        if (approximate && value === 99) value = 98;
+        return String(value).padStart(2, '0');
+      }
+
+      function renderCell(index) {
+        const data = cells[index];
+        const el = boardEl.children[index];
+        if (!el) return;
+
+        el.className = 'cell';
+        el.replaceChildren();
+
+        if (data.open) {
+          el.classList.add('open');
+          if (data.mine) {
+            el.classList.add('mine');
+            if (index === explodedIndex) el.classList.add('exploded');
+            el.textContent = '💣';
+            el.setAttribute('aria-label', '地雷');
+          } else if (data.adjacent > 0) {
+            const number = document.createElement('span');
+            number.className = `n${data.adjacent}`;
+            number.textContent = String(data.adjacent);
+            el.appendChild(number);
+            el.setAttribute('aria-label', `已开启，附近有 ${data.adjacent} 个雷`);
+          } else {
+            el.setAttribute('aria-label', '已开启，附近没有雷');
+          }
+          return;
+        }
+
+        if (ended && data.flag && !data.mine) {
+          el.classList.add('wrong');
+          el.textContent = '✕';
+          el.setAttribute('aria-label', '错误标记');
+          return;
+        }
+
+        const hasProbability = inferenceActive && probabilities.has(index) && !ended;
+        if (hasProbability) {
+          const p = probabilities.get(index);
+          const certainty = certainties.get(index);
+          const certainSafe = certainty === 'safe' || (inferenceMode !== 'approximate' && p <= 1e-12);
+          const certainMine = certainty === 'mine' || (inferenceMode !== 'approximate' && p >= 1 - 1e-12);
+
+          if (certainSafe) {
+            el.classList.add('certain-safe');
+            el.setAttribute('aria-label', '未开启，推理结果：确定安全');
+            return;
+          }
+
+          if (certainMine) {
+            el.classList.add('certain-mine');
+            el.setAttribute('aria-label', '未开启，推理结果：确定有雷');
+            return;
+          }
+
+          if (p < 1 / 3) el.classList.add('risk-low');
+          else if (p > 2 / 3) el.classList.add('risk-high');
+          else el.classList.add('risk-mid');
+
+          if (data.flag) {
+            const flag = document.createElement('span');
+            flag.className = 'flag-icon';
+            flag.textContent = '🚩';
+            el.appendChild(flag);
+          }
+
+          const prob = document.createElement('span');
+          prob.className = 'prob';
+          prob.textContent = probabilityLabel(p, inferenceMode === 'approximate');
+          el.appendChild(prob);
+          el.setAttribute('aria-label', `未开启，推理雷概率 ${prob.textContent}%`);
+          return;
+        }
+
+        if (data.flag) {
+          el.classList.add('flag-only');
+          const flag = document.createElement('span');
+          flag.className = 'flag-icon';
+          flag.textContent = '🚩';
+          el.appendChild(flag);
+          el.setAttribute('aria-label', '已标记');
+        } else {
+          el.setAttribute('aria-label', '未开启');
+        }
+      }
+
+      function renderAll() {
+        for (let i = 0; i < cells.length; i++) renderCell(i);
+        remainingValue.textContent = pad3(mineCount - flagCount);
+        faceBtn.textContent = ended ? (won ? '😎' : '😵') : '🙂';
+      }
+
+      function clearInference(message = inferenceEnabled ? '等待推理' : '推理已关闭') {
+        inferenceRequestId++;
+        inferenceActive = false;
+        probabilities = new Map();
+        certainties = new Map();
+        inferenceMode = '';
+        inferStatus.textContent = message;
+      }
+
+      function afterStep() {
+        if (ended) return;
+        if (inferenceEnabled) refreshInference();
+        else saveGameState();
+      }
+
+      function newGame() {
+        rows = clampInt(rowsInput.value, 5, 40);
+        cols = clampInt(colsInput.value, 5, 40);
+        mineCount = clampInt(minesInput.value, 1, rows * cols - 1);
+
+        rowsInput.value = String(rows);
+        colsInput.value = String(cols);
+        minesInput.max = String(rows * cols - 1);
+        minesInput.value = String(mineCount);
+
+        started = false;
+        ended = false;
+        won = false;
+        openedCount = 0;
+        flagCount = 0;
+        explodedIndex = -1;
+        resetTimer();
+        clearInference(inferenceEnabled ? '等待首步' : '推理已关闭');
+        createEmptyBoard();
+        buildBoardDom();
+        boardWrapEl.scrollTo({ left: 0, top: 0 });
+        saveGameState();
+      }
+
+      function finishGame(isWin, hitIndex = -1) {
+        ended = true;
+        won = isWin;
+        explodedIndex = hitIndex;
+        clearInterval(timerId);
+        timerId = null;
+        clearInference(isWin ? '完成' : '结束');
+
+        if (isWin) {
+          for (const cell of cells) {
+            if (cell.mine && !cell.flag) {
+              cell.flag = true;
+              flagCount++;
+            }
+          }
+          showToast('完成');
+        } else {
+          for (const cell of cells) {
+            if (cell.mine) cell.open = true;
+          }
+          showToast('踩雷');
+        }
+        renderAll();
+        saveGameState();
+      }
+
+      function checkWin() {
+        if (openedCount === cells.length - mineCount) finishGame(true);
+      }
+
+      function revealFrom(startIndex) {
+        const queue = [startIndex];
+        let head = 0;
+
+        while (head < queue.length) {
+          const index = queue[head++];
+          const cell = cells[index];
+          if (cell.open || cell.flag) continue;
+
+          cell.open = true;
+          openedCount++;
+
+          if (cell.adjacent === 0) {
+            for (const n of neighbors(index)) {
+              const next = cells[n];
+              if (!next.open && !next.flag && !next.mine) queue.push(n);
+            }
+          }
+        }
+      }
+
+      function openCell(index) {
+        if (ended || cells[index].open || cells[index].flag) return;
+
+        if (!started) {
+          placeMines(index);
+          started = true;
+          startTimer();
+        }
+
+        if (cells[index].mine) {
+          cells[index].open = true;
+          finishGame(false, index);
+          return;
+        }
+
+        revealFrom(index);
+        renderAll();
+        checkWin();
+        afterStep();
+      }
+
+      function toggleFlag(index) {
+        if (ended || cells[index].open) return;
+        const cell = cells[index];
+        if (!cell.flag && flagCount >= mineCount) {
+          showToast('标记数量已达到雷数');
+          return;
+        }
+        cell.flag = !cell.flag;
+        flagCount += cell.flag ? 1 : -1;
+        renderCell(index);
+        remainingValue.textContent = pad3(mineCount - flagCount);
+        afterStep();
+      }
+
+      function chordCell(index) {
+        if (ended || !cells[index].open || cells[index].adjacent <= 0) return;
+        const ns = neighbors(index);
+        const flags = ns.reduce((sum, n) => sum + (cells[n].flag ? 1 : 0), 0);
+        if (flags !== cells[index].adjacent) return;
+
+        for (const n of ns) {
+          if (!cells[n].open && !cells[n].flag) {
+            if (cells[n].mine) {
+              cells[n].open = true;
+              finishGame(false, n);
+              return;
+            }
+            revealFrom(n);
+          }
+        }
+        renderAll();
+        checkWin();
+        afterStep();
+      }
+
+      function primaryAction(index) {
+        if (inputMode === 'flag' && !cells[index].open) {
+          toggleFlag(index);
+        } else if (cells[index].open) {
+          chordCell(index);
+        } else {
+          openCell(index);
+        }
+      }
+
+      function getCellIndexFromEvent(event) {
+        const target = event.target.closest('.cell');
+        if (!target || !boardEl.contains(target)) return -1;
+        return Number(target.dataset.index);
+      }
+
+      boardEl.addEventListener('click', (event) => {
+        const index = getCellIndexFromEvent(event);
+        if (index < 0) return;
+        if (index === suppressClickIndex) {
+          suppressClickIndex = -1;
+          return;
+        }
+        primaryAction(index);
+      });
+
+      boardEl.addEventListener('contextmenu', (event) => {
+        const index = getCellIndexFromEvent(event);
+        if (index < 0) return;
+        event.preventDefault();
+        toggleFlag(index);
+      });
+
+      boardEl.addEventListener('pointerdown', (event) => {
+        if (event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+        const index = getCellIndexFromEvent(event);
+        if (index < 0) return;
+        clearTimeout(longPressTimer);
+        longPressIndex = index;
+        longPressTimer = setTimeout(() => {
+          suppressClickIndex = longPressIndex;
+          toggleFlag(longPressIndex);
+          if (navigator.vibrate) navigator.vibrate(25);
+          longPressIndex = -1;
+        }, 430);
+      });
+
+      const cancelLongPress = () => {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+        longPressIndex = -1;
+      };
+      boardEl.addEventListener('pointerup', cancelLongPress);
+      boardEl.addEventListener('pointercancel', cancelLongPress);
+      boardEl.addEventListener('pointerleave', cancelLongPress);
+
+      modeButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          inputMode = button.dataset.mode;
+          modeButtons.forEach((b) => b.classList.toggle('active', b === button));
+          saveGameState();
+        });
+      });
+
+      function buildInferenceProblem() {
+        const unknown = [];
+        const unknownSet = new Set();
+        for (let i = 0; i < cells.length; i++) {
+          if (!cells[i].open) {
+            unknown.push(i);
+            unknownSet.add(i);
+          }
+        }
+
+        const constraints = [];
+        const frontierSet = new Set();
+
+        for (let i = 0; i < cells.length; i++) {
+          const cell = cells[i];
+          if (!cell.open || cell.mine) continue;
+          const vars = neighbors(i).filter((n) => unknownSet.has(n));
+          if (vars.length === 0) continue;
+          constraints.push({ vars, required: cell.adjacent });
+          vars.forEach((v) => frontierSet.add(v));
+        }
+
+        const frontier = [...frontierSet];
+        const free = unknown.filter((i) => !frontierSet.has(i));
+        return { unknown, constraints, frontier, free };
+      }
+
+      function splitComponents(frontier, constraints) {
+        const varToConstraints = new Map(frontier.map((v) => [v, []]));
+        constraints.forEach((constraint, ci) => {
+          constraint.vars.forEach((v) => varToConstraints.get(v)?.push(ci));
+        });
+
+        const seenVars = new Set();
+        const seenConstraints = new Set();
+        const components = [];
+
+        for (const start of frontier) {
+          if (seenVars.has(start)) continue;
+          const vars = [];
+          const cons = [];
+          const queue = [start];
+          seenVars.add(start);
+
+          while (queue.length) {
+            const v = queue.pop();
+            vars.push(v);
+            for (const ci of varToConstraints.get(v) || []) {
+              if (!seenConstraints.has(ci)) {
+                seenConstraints.add(ci);
+                cons.push(constraints[ci]);
+              }
+              for (const nv of constraints[ci].vars) {
+                if (!seenVars.has(nv)) {
+                  seenVars.add(nv);
+                  queue.push(nv);
+                }
+              }
+            }
+          }
+          components.push({ vars, constraints: cons });
+        }
+        return components;
+      }
+
+      function enumerateComponent(component, nodeLimit = 850000) {
+        const n = component.vars.length;
+        // 变量多不代表一定难算；交给节点上限判断，避免可解的大边界被直接降级为近似推理。
+        if (n > 220) throw new Error('component-too-large');
+
+        const localIndex = new Map(component.vars.map((v, i) => [v, i]));
+        const cons = component.constraints.map((c) => ({
+          vars: c.vars.map((v) => localIndex.get(v)),
+          required: c.required,
+          mines: 0,
+          remaining: c.vars.length
+        }));
+
+        const varCons = Array.from({ length: n }, () => []);
+        cons.forEach((c, ci) => c.vars.forEach((v) => varCons[v].push(ci)));
+
+        const order = Array.from({ length: n }, (_, i) => i)
+          .sort((a, b) => varCons[b].length - varCons[a].length);
+        const assigned = new Int8Array(n);
+        const ways = Array(n + 1).fill(0);
+        const mineWays = Array.from({ length: n }, () => Array(n + 1).fill(0));
+        const mineStack = [];
+        let nodes = 0;
+
+        function dfs(pos, totalMines) {
+          nodes++;
+          if (nodes > nodeLimit) throw new Error('node-limit');
+
+          if (pos === n) {
+            ways[totalMines]++;
+            for (const v of mineStack) mineWays[v][totalMines]++;
+            return;
+          }
+
+          const v = order[pos];
+          for (let value = 0; value <= 1; value++) {
+            let valid = true;
+            for (const ci of varCons[v]) {
+              const c = cons[ci];
+              c.remaining--;
+              c.mines += value;
+              if (c.mines > c.required || c.mines + c.remaining < c.required) valid = false;
+            }
+
+            assigned[v] = value;
+            if (value) mineStack.push(v);
+            if (valid) dfs(pos + 1, totalMines + value);
+            if (value) mineStack.pop();
+
+            for (const ci of varCons[v]) {
+              const c = cons[ci];
+              c.mines -= value;
+              c.remaining++;
+            }
+          }
+        }
+
+        dfs(0, 0);
+        if (!ways.some((x) => x > 0)) throw new Error('no-solutions');
+        return { vars: component.vars, ways, mineWays };
+      }
+
+      function logAdd(a, b) {
+        if (a === -Infinity) return b;
+        if (b === -Infinity) return a;
+        const m = Math.max(a, b);
+        return m + Math.log(Math.exp(a - m) + Math.exp(b - m));
+      }
+
+      function logConvolve(a, b, maxDegree) {
+        const maxLen = Math.min(maxDegree, (a.length - 1) + (b.length - 1));
+        const out = Array(maxLen + 1).fill(-Infinity);
+        for (let i = 0; i < a.length; i++) {
+          if (a[i] === -Infinity) continue;
+          const maxJ = Math.min(b.length - 1, maxDegree - i);
+          for (let j = 0; j <= maxJ; j++) {
+            if (b[j] === -Infinity) continue;
+            out[i + j] = logAdd(out[i + j], a[i] + b[j]);
+          }
+        }
+        return out;
+      }
+
+      function exactInference(problem) {
+        const components = splitComponents(problem.frontier, problem.constraints);
+        const enumerated = components.map((component) => enumerateComponent(component));
+        const maxMines = mineCount;
+
+        const logFact = Array(cells.length + 1).fill(0);
+        for (let i = 1; i < logFact.length; i++) logFact[i] = logFact[i - 1] + Math.log(i);
+        const logChoose = (n, k) => {
+          if (k < 0 || k > n) return -Infinity;
+          return logFact[n] - logFact[k] - logFact[n - k];
+        };
+
+        const compLogs = enumerated.map((c) => c.ways.map((x) => x > 0 ? Math.log(x) : -Infinity));
+        const prefix = [[0]];
+        for (const dist of compLogs) prefix.push(logConvolve(prefix[prefix.length - 1], dist, maxMines));
+
+        const suffix = Array(compLogs.length + 1);
+        suffix[compLogs.length] = [0];
+        for (let i = compLogs.length - 1; i >= 0; i--) {
+          suffix[i] = logConvolve(compLogs[i], suffix[i + 1], maxMines);
+        }
+
+        const freeDist = Array(Math.min(problem.free.length, maxMines) + 1)
+          .fill(-Infinity)
+          .map((_, k) => logChoose(problem.free.length, k));
+
+        const globalDist = logConvolve(prefix[prefix.length - 1], freeDist, maxMines);
+        const logTotal = globalDist[mineCount] ?? -Infinity;
+        if (logTotal === -Infinity) throw new Error('global-inconsistent');
+
+        const result = new Map();
+        const certainty = new Map();
+
+        for (let ci = 0; ci < enumerated.length; ci++) {
+          const outsideComponents = logConvolve(prefix[ci], suffix[ci + 1], maxMines);
+          const outside = logConvolve(outsideComponents, freeDist, maxMines);
+          const comp = enumerated[ci];
+
+          for (let vi = 0; vi < comp.vars.length; vi++) {
+            let logMine = -Infinity;
+            let logSafe = -Infinity;
+            for (let k = 0; k < comp.mineWays[vi].length; k++) {
+              const mineWays = comp.mineWays[vi][k];
+              const safeWays = comp.ways[k] - mineWays;
+              const rest = mineCount - k;
+              if (rest < 0 || rest >= outside.length || outside[rest] === -Infinity) continue;
+              if (mineWays > 0) logMine = logAdd(logMine, Math.log(mineWays) + outside[rest]);
+              if (safeWays > 0) logSafe = logAdd(logSafe, Math.log(safeWays) + outside[rest]);
+            }
+
+            const cellIndex = comp.vars[vi];
+            if (logMine === -Infinity) certainty.set(cellIndex, 'safe');
+            else if (logSafe === -Infinity) certainty.set(cellIndex, 'mine');
+
+            const p = logMine === -Infinity ? 0 : Math.exp(logMine - logTotal);
+            result.set(cellIndex, Math.min(1, Math.max(0, p)));
+          }
+        }
+
+        if (problem.free.length > 0) {
+          const frontierDist = prefix[prefix.length - 1];
+          const weighted = [];
+          let maxLog = -Infinity;
+          for (let k = 0; k < frontierDist.length; k++) {
+            const freeMines = mineCount - k;
+            if (freeMines < 0 || freeMines > problem.free.length) continue;
+            if (frontierDist[k] === -Infinity) continue;
+            const logWeight = frontierDist[k] + logChoose(problem.free.length, freeMines);
+            weighted.push([logWeight, freeMines]);
+            if (logWeight > maxLog) maxLog = logWeight;
+          }
+
+          let weightSum = 0;
+          let mineSum = 0;
+          let minFreeMines = Infinity;
+          let maxFreeMines = -Infinity;
+          for (const [logWeight, freeMines] of weighted) {
+            const w = Math.exp(logWeight - maxLog);
+            weightSum += w;
+            mineSum += w * freeMines;
+            minFreeMines = Math.min(minFreeMines, freeMines);
+            maxFreeMines = Math.max(maxFreeMines, freeMines);
+          }
+          const pFree = weightSum > 0 ? mineSum / (weightSum * problem.free.length) : mineCount / problem.unknown.length;
+          for (const index of problem.free) {
+            result.set(index, Math.min(1, Math.max(0, pFree)));
+            if (maxFreeMines === 0) certainty.set(index, 'safe');
+            else if (minFreeMines === problem.free.length) certainty.set(index, 'mine');
+          }
+        }
+
+        return { probabilities: result, certainties: certainty, components: components.length };
+      }
+
+      function projectTotal(prob, target) {
+        for (let pass = 0; pass < 5; pass++) {
+          const sum = prob.reduce((a, b) => a + b, 0);
+          const diff = target - sum;
+          if (Math.abs(diff) < 1e-8) break;
+
+          const adjustable = [];
+          for (let i = 0; i < prob.length; i++) {
+            if ((diff > 0 && prob[i] < 1 - 1e-9) || (diff < 0 && prob[i] > 1e-9)) adjustable.push(i);
+          }
+          if (!adjustable.length) break;
+          const delta = diff / adjustable.length;
+          for (const i of adjustable) prob[i] = Math.min(1, Math.max(0, prob[i] + delta));
+        }
+      }
+
+      function deriveCertainCells(problem, probabilityMap = null) {
+        const certainty = new Map();
+        let pool = problem.constraints.map((constraint) => ({
+          vars: [...new Set(constraint.vars)].sort((a, b) => a - b),
+          required: constraint.required
+        }));
+        // 总雷数也是有效约束，但标记仍完全不参与。
+        pool.push({ vars: [...problem.unknown].sort((a, b) => a - b), required: mineCount });
+
+        const constraintKey = (vars) => vars.join(',');
+
+        function setCertain(index, state) {
+          const old = certainty.get(index);
+          if (old && old !== state) return false;
+          if (old === state) return false;
+          certainty.set(index, state);
+          return true;
+        }
+
+        function simplifyConstraints(source) {
+          const unique = new Map();
+          for (const constraint of source) {
+            let required = constraint.required;
+            const vars = [];
+            for (const index of constraint.vars) {
+              const state = certainty.get(index);
+              if (state === 'mine') required--;
+              else if (state !== 'safe') vars.push(index);
+            }
+            if (required < 0 || required > vars.length || vars.length === 0) continue;
+            const key = constraintKey(vars);
+            const old = unique.get(key);
+            if (!old || old.required === required) unique.set(key, { vars, required });
+          }
+          return [...unique.values()];
+        }
+
+        function propagateAndDerive(maxRounds = 18) {
+          for (let round = 0; round < maxRounds; round++) {
+            const simplified = simplifyConstraints(pool);
+            let changed = false;
+
+            for (const constraint of simplified) {
+              if (constraint.required === 0) {
+                for (const index of constraint.vars) changed = setCertain(index, 'safe') || changed;
+              } else if (constraint.required === constraint.vars.length) {
+                for (const index of constraint.vars) changed = setCertain(index, 'mine') || changed;
+              }
+            }
+
+            if (changed) {
+              pool = simplified;
+              continue;
+            }
+
+            const pairable = simplified.filter((c) => c.vars.length <= 24);
+            const byVar = new Map();
+            pairable.forEach((constraint, ci) => {
+              for (const index of constraint.vars) {
+                if (!byVar.has(index)) byVar.set(index, []);
+                byVar.get(index).push(ci);
+              }
+            });
+
+            const pairs = new Set();
+            for (const list of byVar.values()) {
+              for (let i = 0; i < list.length; i++) {
+                for (let j = i + 1; j < list.length; j++) {
+                  const a = Math.min(list[i], list[j]);
+                  const b = Math.max(list[i], list[j]);
+                  pairs.add(`${a}:${b}`);
+                }
+              }
+            }
+
+            const existing = new Map(simplified.map((c) => [constraintKey(c.vars), c.required]));
+            const derived = [];
+
+            function addConstraint(vars, required) {
+              if (!vars.length || required < 0 || required > vars.length) return;
+              vars.sort((a, b) => a - b);
+              const key = constraintKey(vars);
+              if (existing.has(key)) return;
+              existing.set(key, required);
+              derived.push({ vars, required });
+            }
+
+            for (const pair of pairs) {
+              const [ai, bi] = pair.split(':').map(Number);
+              const a = pairable[ai];
+              const b = pairable[bi];
+              const aSet = new Set(a.vars);
+              const bSet = new Set(b.vars);
+              const intersection = a.vars.filter((v) => bSet.has(v));
+              if (!intersection.length) continue;
+              const onlyA = a.vars.filter((v) => !bSet.has(v));
+              const onlyB = b.vars.filter((v) => !aSet.has(v));
+
+              // 子集差分：A⊆B 时，B-A 的雷数可直接得到。
+              if (onlyA.length === 0) addConstraint(onlyB, b.required - a.required);
+              if (onlyB.length === 0) addConstraint(onlyA, a.required - b.required);
+
+              // 一般重叠约束：交集雷数上下界相等时，可拆成三个精确约束。
+              const low = Math.max(
+                0,
+                a.required - onlyA.length,
+                b.required - onlyB.length
+              );
+              const high = Math.min(intersection.length, a.required, b.required);
+              if (low === high) {
+                addConstraint([...intersection], low);
+                addConstraint([...onlyA], a.required - low);
+                addConstraint([...onlyB], b.required - low);
+              }
+
+              if (derived.length > 1800) break;
+            }
+
+            pool = simplified;
+            if (!derived.length) break;
+            pool.push(...derived);
+          }
+        }
+
+        function satisfiableWithAssumption(component, target, targetValue, nodeLimit = 30000) {
+          const n = component.vars.length;
+          if (n > 120) return null;
+          const localIndex = new Map(component.vars.map((v, i) => [v, i]));
+          const targetLocal = localIndex.get(target);
+          if (targetLocal === undefined) return null;
+
+          const cons = component.constraints.map((c) => ({
+            vars: c.vars.map((v) => localIndex.get(v)),
+            required: c.required,
+            mines: 0,
+            remaining: c.vars.length
+          }));
+          const varCons = Array.from({ length: n }, () => []);
+          cons.forEach((c, ci) => c.vars.forEach((v) => varCons[v].push(ci)));
+          const order = Array.from({ length: n }, (_, i) => i)
+            .sort((a, b) => {
+              if (a === targetLocal) return -1;
+              if (b === targetLocal) return 1;
+              return varCons[b].length - varCons[a].length;
+            });
+          let nodes = 0;
+
+          function dfs(pos) {
+            if (++nodes > nodeLimit) throw new Error('proof-node-limit');
+            if (pos === n) return true;
+            const v = order[pos];
+            const values = v === targetLocal ? [targetValue] : [0, 1];
+            for (const value of values) {
+              let valid = true;
+              for (const ci of varCons[v]) {
+                const c = cons[ci];
+                c.remaining--;
+                c.mines += value;
+                if (c.mines > c.required || c.mines + c.remaining < c.required) valid = false;
+              }
+              const found = valid && dfs(pos + 1);
+              for (const ci of varCons[v]) {
+                const c = cons[ci];
+                c.mines -= value;
+                c.remaining++;
+              }
+              if (found) return true;
+            }
+            return false;
+          }
+
+          try {
+            return dfs(0);
+          } catch (_) {
+            return null;
+          }
+        }
+
+        propagateAndDerive();
+
+        // 近似概率只负责挑选需要证明的候选；结论必须通过约束可满足性检查。
+        if (probabilityMap) {
+          const reduced = simplifyConstraints(pool).filter((c) => c.vars.length <= 24);
+          const frontier = [...new Set(reduced.flatMap((c) => c.vars))];
+          const components = splitComponents(frontier, reduced);
+          const cellToComponent = new Map();
+          components.forEach((component) => component.vars.forEach((v) => cellToComponent.set(v, component)));
+
+          const candidates = [...probabilityMap]
+            .filter(([index, p]) => !certainty.has(index) && (p < 0.005 || p >= 0.985))
+            .sort((a, b) => Math.min(a[1], 1 - a[1]) - Math.min(b[1], 1 - b[1]))
+            .slice(0, 64);
+
+          for (const [index, p] of candidates) {
+            const component = cellToComponent.get(index);
+            if (!component) continue;
+            const unlikelyValue = p < 0.005 ? 1 : 0;
+            const possible = satisfiableWithAssumption(component, index, unlikelyValue);
+            if (possible === false) {
+              setCertain(index, unlikelyValue === 1 ? 'safe' : 'mine');
+            }
+          }
+          propagateAndDerive(10);
+        }
+
+        return certainty;
+      }
+
+      function approximateInference(problem) {
+        const unknown = problem.unknown;
+        const local = new Map(unknown.map((v, i) => [v, i]));
+        const base = Math.min(1, Math.max(0, mineCount / Math.max(1, unknown.length)));
+        const p = Array(unknown.length).fill(base);
+        const constraints = problem.constraints.map((c) => ({
+          vars: c.vars.map((v) => local.get(v)),
+          required: c.required
+        }));
+
+        for (let iter = 0; iter < 420; iter++) {
+          for (const constraint of constraints) {
+            if (!constraint.vars.length) continue;
+            let sum = 0;
+            for (const v of constraint.vars) sum += p[v];
+            const delta = (constraint.required - sum) / constraint.vars.length;
+            for (const v of constraint.vars) p[v] = Math.min(1, Math.max(0, p[v] + delta * 0.92));
+          }
+          projectTotal(p, mineCount);
+        }
+
+        const result = new Map();
+        unknown.forEach((v, i) => result.set(v, p[i]));
+        return result;
+      }
+
+      function refreshInference() {
+        if (!inferenceEnabled || ended) return;
+
+        const requestId = ++inferenceRequestId;
+        inferenceActive = false;
+        probabilities = new Map();
+        certainties = new Map();
+        inferenceMode = '';
+        const problem = buildInferenceProblem();
+        if (!problem.unknown.length) {
+          clearInference('完成');
+          renderAll();
+          saveGameState();
+          return;
+        }
+
+        inferStatus.textContent = '计算中';
+        renderAll();
+
+        setTimeout(() => {
+          if (requestId !== inferenceRequestId || !inferenceEnabled || ended) return;
+
+          try {
+            if (problem.constraints.length === 0) {
+              const p = mineCount / problem.unknown.length;
+              probabilities = new Map(problem.unknown.map((i) => [i, p]));
+              certainties = new Map();
+              if (p === 0 || p === 1) {
+                const state = p === 1 ? 'mine' : 'safe';
+                for (const index of problem.unknown) certainties.set(index, state);
+              }
+              inferenceMode = 'uniform';
+              inferStatus.textContent = '均匀推理';
+            } else {
+              try {
+                const exact = exactInference(problem);
+                probabilities = exact.probabilities;
+                certainties = exact.certainties;
+                inferenceMode = 'exact';
+                inferStatus.textContent = '精确推理';
+              } catch (error) {
+                probabilities = approximateInference(problem);
+                certainties = deriveCertainCells(problem, probabilities);
+                inferenceMode = 'approximate';
+                inferStatus.textContent = '近似推理';
+              }
+            }
+            inferenceActive = true;
+            renderAll();
+            saveGameState();
+          } catch (_) {
+            if (requestId !== inferenceRequestId) return;
+            clearInference('推理失败');
+            renderAll();
+            saveGameState();
+          }
+        }, 20);
+      }
+
+      inferToggle.addEventListener('change', () => {
+        inferenceEnabled = inferToggle.checked;
+        if (inferenceEnabled) {
+          if (ended) {
+            inferStatus.textContent = won ? '完成' : '结束';
+            saveGameState();
+          } else {
+            refreshInference();
+          }
+        } else {
+          clearInference('推理已关闭');
+          renderAll();
+          saveGameState();
+        }
+      });
+      faceBtn.addEventListener('click', newGame);
+      newGameBtn.addEventListener('click', newGame);
+      rowsInput.addEventListener('input', updateMineInputLimit);
+      colsInput.addEventListener('input', updateMineInputLimit);
+      window.addEventListener('resize', updateCellSize, { passive: true });
+      boardWrapEl.addEventListener('scroll', () => {
+        clearTimeout(scrollSaveTimer);
+        scrollSaveTimer = setTimeout(saveGameState, 180);
+      }, { passive: true });
+      window.addEventListener('beforeunload', saveGameState);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') saveGameState();
+      });
+
+      if (!restoreGameState()) newGame();
+    })();
+  </script>
+</body>
+</html>
