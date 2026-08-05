@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文本替换与差异编辑</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --background: #181a1b;
+      --panel: #232628;
+      --panel-light: #2b2f31;
+      --border: #3b4043;
+      --text: #e5e7e9;
+      --muted: #9da4a8;
+      --button: #4b5563;
+      --button-hover: #5b6675;
+      --added: rgba(45, 160, 85, 0.48);
+      --deleted: rgba(205, 60, 60, 0.50);
+      --deleted-hover: rgba(225, 70, 70, 0.66);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--background);
+      color: var(--text);
+      font-family: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    .container {
+      width: min(1000px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 40px 0 80px;
+    }
+
+    h1 {
+      margin: 0 0 24px;
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .input-box,
+    .diff-editor {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+      background: var(--panel);
+      color: var(--text);
+      font: 15px/1.7 "JetBrains Mono", "Cascadia Code", "Noto Sans Mono CJK SC", monospace;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .input-box:focus,
+    .diff-editor:focus {
+      border-color: #68737a;
+      box-shadow: 0 0 0 3px rgba(104, 115, 122, 0.18);
+    }
+
+    .input-box {
+      display: block;
+      min-height: 260px;
+      padding: 16px;
+      resize: vertical;
+    }
+
+    .actions {
+      margin: 14px 0 24px;
+    }
+
+    button {
+      border: 1px solid #68717b;
+      border-radius: 8px;
+      padding: 10px 18px;
+      background: var(--button);
+      color: #fff;
+      font: inherit;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.08s ease;
+    }
+
+    button:hover { background: var(--button-hover); }
+    button:active { transform: translateY(1px); }
+    button:disabled { cursor: default; opacity: 0.72; }
+
+    .preview {
+      position: relative;
+      min-height: 220px;
+      max-height: 65vh;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--panel);
+    }
+
+    .preview:focus-within {
+      border-color: #68737a;
+      box-shadow: 0 0 0 3px rgba(104, 115, 122, 0.18);
+    }
+
+    .preview-toolbar {
+      position: sticky;
+      z-index: 20;
+      top: 0;
+      display: flex;
+      justify-content: flex-end;
+      height: 0;
+      padding: 10px;
+      pointer-events: none;
+    }
+
+    #copyButton {
+      padding: 7px 14px;
+      background: rgba(60, 65, 69, 0.94);
+      backdrop-filter: blur(8px);
+      pointer-events: auto;
+    }
+
+    .diff-editor {
+      min-height: 218px;
+      padding: 62px 18px 22px;
+      border: 0;
+      border-radius: 9px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      tab-size: 4;
+      caret-color: #fff;
+    }
+
+    .diff-editor:empty::before {
+      color: var(--muted);
+      content: attr(data-placeholder);
+      pointer-events: none;
+    }
+
+    .diff-added,
+    .diff-deleted {
+      border-radius: 3px;
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
+    }
+
+    .diff-added {
+      background: var(--added);
+    }
+
+    .diff-deleted {
+      display: inline;
+      background: var(--deleted);
+      color: rgba(255, 225, 225, 0.88);
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+      cursor: text;
+      user-select: none;
+    }
+
+    .diff-deleted:hover {
+      background: var(--deleted-hover);
+    }
+
+    /*
+     * 被删除的换行、Tab、半角/全角空格只显示为一个 1ch 宽的红色标记。
+     * 标记本身不会换行，也不会保留原空白所占据的实际宽度。
+     */
+    .diff-deleted-whitespace {
+      display: inline;
+      margin: 0;
+      padding: 0;
+      line-height: inherit;
+      vertical-align: baseline;
+      background: var(--deleted);
+      border-radius: 3px;
+      cursor: text;
+      user-select: none;
+      text-decoration: none;
+    }
+
+    .diff-deleted-whitespace:hover {
+      background: var(--deleted-hover);
+    }
+
+    .legend {
+      display: flex;
+      gap: 16px;
+      margin: 12px 2px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .legend-item::before {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 6px;
+      border-radius: 2px;
+      vertical-align: -1px;
+      content: "";
+    }
+
+    .deleted-label::before { background: var(--deleted); }
+    .added-label::before { background: var(--added); }
+
+    @media (max-width: 600px) {
+      .container {
+        width: min(100% - 20px, 1000px);
+        padding-top: 20px;
+      }
+
+      .input-box { min-height: 220px; }
+      .preview { max-height: 70vh; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>文本替换与差异编辑</h1>
+
+    <textarea
+      id="inputText"
+      class="input-box"
+      spellcheck="false"
+      placeholder="在这里输入需要处理的文本……"
+    ></textarea>
+
+    <div class="actions">
+      <button id="applyButton" type="button">应用更改</button>
+    </div>
+
+    <section class="preview" aria-label="可编辑的修改结果">
+      <div class="preview-toolbar">
+        <button id="copyButton" type="button">复制</button>
+      </div>
+
+      <div
+        id="diffEditor"
+        class="diff-editor"
+        contenteditable="true"
+        role="textbox"
+        aria-multiline="true"
+        spellcheck="false"
+        data-placeholder="修改结果会显示在这里。"
+      ></div>
+    </section>
+
+    <div class="legend">
+      <span class="legend-item deleted-label">删除占位</span>
+      <span class="legend-item added-label">新增</span>
+    </div>
+  </main>
+
+  <script>
+    "use strict";
+
+    const replacementDictionary = [
+      { pattern: "［", replacement: "[" },
+      { pattern: "］", replacement: "]" },
+      { pattern: "～", replacement: "~" },
+      { pattern: "麽", replacement: "麼" },
+      { pattern: "姆", replacement: "呣" },
+      { pattern: /\.?gif/gi, replacement: ".gif" },
+      { pattern: /\.?jpg/gi, replacement: ".jpg" },
+      { pattern: "　", replacement: "  " },
+
+      // 正则规则示例：匹配 GIF 或 .GIF，并统一替换为 .gif。
+      // { pattern: /\.?gif/gi, replacement: ".gif" }
+    ];
+
+    const inputText = document.getElementById("inputText");
+    const diffEditor = document.getElementById("diffEditor");
+    const applyButton = document.getElementById("applyButton");
+    const copyButton = document.getElementById("copyButton");
+
+    let originalText = "";
+    let modifiedText = "";
+    let editorIsComposing = false;
+    let sourceIsComposing = false;
+    let isRendering = false;
+
+    const history = [];
+    let historyIndex = -1;
+    let historyGroup = null;
+    let historyTimer = 0;
+
+    function isChineseCharacter(character) {
+      return Boolean(character) && /\p{Script=Han}/u.test(character);
+    }
+
+    function escapeRegExp(text) {
+      return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    function normalizeReplacementPattern(pattern) {
+      if (pattern instanceof RegExp) {
+        const flags = pattern.flags.includes("g")
+          ? pattern.flags
+          : pattern.flags + "g";
+        return new RegExp(pattern.source, flags);
+      }
+      return new RegExp(escapeRegExp(String(pattern)), "gu");
+    }
+
+    function replaceCharacters(text) {
+      return replacementDictionary.reduce((result, rule) => {
+        if (!rule || !("pattern" in rule)) return result;
+        return result.replace(
+          normalizeReplacementPattern(rule.pattern),
+          rule.replacement ?? ""
+        );
+      }, text);
+    }
+
+    function hasUnclosedChineseParenthesis(line) {
+      let depth = 0;
+      for (const character of line) {
+        if (character === "（") depth++;
+        else if (character === "）" && depth > 0) depth--;
+      }
+      return depth > 0;
+    }
+
+    function processLineEnding(line) {
+      if (!line.length || hasUnclosedChineseParenthesis(line)) return line;
+
+      const characters = Array.from(line);
+      const lastCharacter = characters.at(-1);
+
+      if (isChineseCharacter(lastCharacter)) return line + "。";
+
+      if (
+        lastCharacter === "”" &&
+        characters.length >= 2 &&
+        isChineseCharacter(characters.at(-2))
+      ) {
+        characters.splice(characters.length - 1, 0, "。");
+        return characters.join("");
+      }
+
+      return line;
+    }
+
+    function transformText(text) {
+      return replaceCharacters(text)
+        .replace(/\r\n?/g, "\n")
+        .split("\n")
+        .map(processLineEnding)
+        .join("\n");
+    }
+
+    function createDiff(oldText, newText) {
+      const oldCharacters = Array.from(oldText);
+      const newCharacters = Array.from(newText);
+      const oldLength = oldCharacters.length;
+      const newLength = newCharacters.length;
+      const maximumDistance = oldLength + newLength;
+      if (!maximumDistance) return [];
+
+      const trace = [];
+      let positions = new Map([[1, 0]]);
+
+      for (let distance = 0; distance <= maximumDistance; distance++) {
+        trace.push(new Map(positions));
+        const nextPositions = new Map();
+
+        for (let diagonal = -distance; diagonal <= distance; diagonal += 2) {
+          const moveDown =
+            diagonal === -distance ||
+            (
+              diagonal !== distance &&
+              (positions.get(diagonal - 1) ?? -Infinity) <
+              (positions.get(diagonal + 1) ?? -Infinity)
+            );
+
+          let oldIndex = moveDown
+            ? (positions.get(diagonal + 1) ?? 0)
+            : (positions.get(diagonal - 1) ?? 0) + 1;
+          let newIndex = oldIndex - diagonal;
+
+          while (
+            oldIndex < oldLength &&
+            newIndex < newLength &&
+            oldCharacters[oldIndex] === newCharacters[newIndex]
+          ) {
+            oldIndex++;
+            newIndex++;
+          }
+
+          nextPositions.set(diagonal, oldIndex);
+          if (oldIndex >= oldLength && newIndex >= newLength) {
+            return backtrackDiff(trace, oldCharacters, newCharacters, distance);
+          }
+        }
+        positions = nextPositions;
+      }
+      return [];
+    }
+
+    function backtrackDiff(trace, oldCharacters, newCharacters, maxDistance) {
+      let oldIndex = oldCharacters.length;
+      let newIndex = newCharacters.length;
+      const operations = [];
+
+      for (let distance = maxDistance; distance > 0; distance--) {
+        const positions = trace[distance];
+        const diagonal = oldIndex - newIndex;
+        const moveDown =
+          diagonal === -distance ||
+          (
+            diagonal !== distance &&
+            (positions.get(diagonal - 1) ?? -Infinity) <
+            (positions.get(diagonal + 1) ?? -Infinity)
+          );
+
+        const previousDiagonal = moveDown ? diagonal + 1 : diagonal - 1;
+        const previousOldIndex = positions.get(previousDiagonal) ?? 0;
+        const previousNewIndex = previousOldIndex - previousDiagonal;
+
+        while (oldIndex > previousOldIndex && newIndex > previousNewIndex) {
+          operations.push({ type: "equal", value: newCharacters[newIndex - 1] });
+          oldIndex--;
+          newIndex--;
+        }
+
+        if (moveDown) {
+          operations.push({ type: "insert", value: newCharacters[newIndex - 1] });
+          newIndex--;
+        } else {
+          operations.push({ type: "delete", value: oldCharacters[oldIndex - 1] });
+          oldIndex--;
+        }
+      }
+
+      while (oldIndex > 0 && newIndex > 0) {
+        operations.push({ type: "equal", value: newCharacters[newIndex - 1] });
+        oldIndex--;
+        newIndex--;
+      }
+      while (oldIndex > 0) {
+        operations.push({ type: "delete", value: oldCharacters[--oldIndex] });
+      }
+      while (newIndex > 0) {
+        operations.push({ type: "insert", value: newCharacters[--newIndex] });
+      }
+
+      return mergeDiffOperations(operations.reverse());
+    }
+
+    function mergeDiffOperations(operations) {
+      const merged = [];
+      for (const operation of operations) {
+        const previous = merged.at(-1);
+        if (previous && previous.type === operation.type) {
+          previous.value += operation.value;
+        } else {
+          merged.push({ ...operation });
+        }
+      }
+      return merged;
+    }
+
+    /*
+     * 直接把换行保存在文本节点中，而不是转换成 BR/DIV/P。
+     * white-space: pre-wrap 会正确显示连续空行和全角空格。
+     */
+    function appendLiteralText(parent, text) {
+      if (text) parent.appendChild(document.createTextNode(text));
+    }
+
+    function createDeletedSpan(value, whitespaceOnly = false) {
+      const span = document.createElement("span");
+      span.className = whitespaceOnly
+        ? "diff-deleted-whitespace"
+        : "diff-deleted";
+      span.dataset.diffType = "delete";
+      span.contentEditable = "false";
+      span.setAttribute("aria-label", "已删除内容占位：" + value);
+
+      // 空白删除只绘制一个半角字符宽的色块，不渲染原始换行或缩进。
+      if (whitespaceOnly) {
+        span.textContent = " ";
+      } else {
+        appendLiteralText(span, value);
+      }
+
+      return span;
+    }
+
+    function appendDeletedDiff(parent, value) {
+      /*
+       * 将删除内容拆分为“空白”和“非空白”片段。
+       * 每一段连续空白，无论包含多少换行、Tab、半角或全角空格，
+       * 都只显示为一个 1ch 宽的红色占位。
+       */
+      const parts = value.match(/[\s\u3000]+|[^\s\u3000]+/gu) ?? [];
+
+      for (const part of parts) {
+        const whitespaceOnly = /^[\s\u3000]+$/u.test(part);
+        parent.appendChild(createDeletedSpan(part, whitespaceOnly));
+      }
+    }
+
+    function renderDiff(oldText, newText, selection = null) {
+      isRendering = true;
+      const fragment = document.createDocumentFragment();
+
+      for (const item of createDiff(oldText, newText)) {
+        if (item.type === "equal") {
+          appendLiteralText(fragment, item.value);
+          continue;
+        }
+
+        if (item.type === "delete") {
+          appendDeletedDiff(fragment, item.value);
+          continue;
+        }
+
+        const span = document.createElement("span");
+        span.className = "diff-added";
+        span.dataset.diffType = "insert";
+        appendLiteralText(span, item.value);
+        fragment.appendChild(span);
+      }
+
+      diffEditor.replaceChildren(fragment);
+      if (selection) restoreSelection(selection.start, selection.end);
+      isRendering = false;
+    }
+
+    function editableLength(node) {
+      if (node.nodeType === Node.TEXT_NODE) return node.nodeValue?.length ?? 0;
+      if (node.nodeType !== Node.ELEMENT_NODE &&
+          node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) return 0;
+      if (node.nodeType === Node.ELEMENT_NODE && node.dataset?.diffType === "delete") return 0;
+
+      let length = 0;
+      for (const child of node.childNodes) length += editableLength(child);
+      return length;
+    }
+
+    function endpointOffset(container, offset) {
+      let total = 0;
+
+      function walk(node) {
+        if (node === container) {
+          if (node.nodeType === Node.TEXT_NODE) {
+            total += Math.min(offset, node.nodeValue?.length ?? 0);
+          } else {
+            for (let i = 0; i < Math.min(offset, node.childNodes.length); i++) {
+              total += editableLength(node.childNodes[i]);
+            }
+          }
+          throw endpointOffset.done;
+        }
+
+        if (node.nodeType === Node.ELEMENT_NODE && node.dataset?.diffType === "delete") {
+          return;
+        }
+
+        if (node.nodeType === Node.TEXT_NODE) {
+          total += node.nodeValue?.length ?? 0;
+          return;
+        }
+
+        for (const child of node.childNodes) walk(child);
+      }
+
+      try {
+        walk(diffEditor);
+      } catch (error) {
+        if (error !== endpointOffset.done) throw error;
+      }
+      return total;
+    }
+    endpointOffset.done = Symbol("done");
+
+    function getSelectionOffsets() {
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount) {
+        return { start: modifiedText.length, end: modifiedText.length };
+      }
+
+      const range = selection.getRangeAt(0);
+      if (!diffEditor.contains(range.startContainer) ||
+          !diffEditor.contains(range.endContainer)) {
+        return { start: modifiedText.length, end: modifiedText.length };
+      }
+
+      const start = endpointOffset(range.startContainer, range.startOffset);
+      const end = endpointOffset(range.endContainer, range.endOffset);
+      return start <= end ? { start, end } : { start: end, end: start };
+    }
+
+    function locateOffset(target) {
+      let remaining = Math.max(0, Math.min(target, modifiedText.length));
+      let fallback = { node: diffEditor, offset: diffEditor.childNodes.length };
+
+      function walk(node) {
+        if (node.nodeType === Node.ELEMENT_NODE && node.dataset?.diffType === "delete") {
+          return null;
+        }
+
+        if (node.nodeType === Node.TEXT_NODE) {
+          const length = node.nodeValue?.length ?? 0;
+          fallback = { node, offset: length };
+          if (remaining <= length) return { node, offset: remaining };
+          remaining -= length;
+          return null;
+        }
+
+        for (let i = 0; i < node.childNodes.length; i++) {
+          const result = walk(node.childNodes[i]);
+          if (result) return result;
+        }
+        return null;
+      }
+
+      return walk(diffEditor) ?? fallback;
+    }
+
+    function restoreSelection(start, end = start) {
+      const selection = window.getSelection();
+      if (!selection) return;
+
+      const startPoint = locateOffset(start);
+      const endPoint = locateOffset(end);
+      const range = document.createRange();
+      range.setStart(startPoint.node, startPoint.offset);
+      range.setEnd(endPoint.node, endPoint.offset);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+
+    function extractEditableText(root) {
+      let result = "";
+      function walk(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          result += node.nodeValue ?? "";
+          return;
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE &&
+            node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) return;
+        if (node.nodeType === Node.ELEMENT_NODE && node.dataset?.diffType === "delete") return;
+
+        if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "BR") {
+          result += "\n";
+          return;
+        }
+
+        const block =
+          node !== root &&
+          node.nodeType === Node.ELEMENT_NODE &&
+          /^(DIV|P|LI|H[1-6]|PRE|BLOCKQUOTE)$/.test(node.tagName);
+
+        if (block && result && !result.endsWith("\n")) result += "\n";
+        for (const child of node.childNodes) walk(child);
+      }
+      walk(root);
+      return result.replace(/\r\n?/g, "\n");
+    }
+
+    function resetHistory(text, caret = text.length) {
+      history.length = 0;
+      history.push({ text, start: caret, end: caret });
+      historyIndex = 0;
+      historyGroup = null;
+      clearTimeout(historyTimer);
+    }
+
+    function commitHistory(text, start, end, group = null) {
+      const current = history[historyIndex];
+      if (current && current.text === text && current.start === start && current.end === end) return;
+
+      const canMerge =
+        group &&
+        historyGroup === group &&
+        historyIndex === history.length - 1;
+
+      if (canMerge) {
+        history[historyIndex] = { text, start, end };
+      } else {
+        history.splice(historyIndex + 1);
+        history.push({ text, start, end });
+        historyIndex = history.length - 1;
+      }
+
+      historyGroup = group;
+      clearTimeout(historyTimer);
+      historyTimer = setTimeout(() => { historyGroup = null; }, 700);
+    }
+
+    function restoreHistory(index) {
+      if (index < 0 || index >= history.length) return;
+      historyIndex = index;
+      historyGroup = null;
+      const state = history[index];
+      modifiedText = state.text;
+      renderDiff(originalText, modifiedText, state);
+    }
+
+    function undo() { restoreHistory(historyIndex - 1); }
+    function redo() { restoreHistory(historyIndex + 1); }
+
+    function replaceModelRange(start, end, insertedText, historyGroupName = null) {
+      insertedText = String(insertedText).replace(/\r\n?/g, "\n");
+      modifiedText =
+        modifiedText.slice(0, start) +
+        insertedText +
+        modifiedText.slice(end);
+
+      const caret = start + insertedText.length;
+      renderDiff(originalText, modifiedText, { start: caret, end: caret });
+      commitHistory(modifiedText, caret, caret, historyGroupName);
+    }
+
+    function previousCodePointStart(text, offset) {
+      if (offset <= 0) return 0;
+      const low = text.charCodeAt(offset - 1);
+      if (low >= 0xDC00 && low <= 0xDFFF && offset >= 2) {
+        const high = text.charCodeAt(offset - 2);
+        if (high >= 0xD800 && high <= 0xDBFF) return offset - 2;
+      }
+      return offset - 1;
+    }
+
+    function nextCodePointEnd(text, offset) {
+      if (offset >= text.length) return text.length;
+      const high = text.charCodeAt(offset);
+      if (high >= 0xD800 && high <= 0xDBFF && offset + 1 < text.length) {
+        const low = text.charCodeAt(offset + 1);
+        if (low >= 0xDC00 && low <= 0xDFFF) return offset + 2;
+      }
+      return offset + 1;
+    }
+
+    function updateFromSource() {
+      originalText = inputText.value.replace(/\r\n?/g, "\n");
+      modifiedText = transformText(originalText);
+      renderDiff(originalText, modifiedText);
+      resetHistory(modifiedText);
+    }
+
+    function placeCaretBeforeDeleted(span) {
+      let offset = 0;
+      for (const child of diffEditor.childNodes) {
+        if (child === span) break;
+        offset += editableLength(child);
+      }
+      diffEditor.focus();
+      restoreSelection(offset);
+    }
+
+    inputText.addEventListener("compositionstart", () => {
+      sourceIsComposing = true;
+    });
+
+    inputText.addEventListener("compositionend", () => {
+      sourceIsComposing = false;
+      updateFromSource();
+    });
+
+    inputText.addEventListener("input", event => {
+      if (!sourceIsComposing && !event.isComposing) updateFromSource();
+    });
+
+    diffEditor.addEventListener("compositionstart", () => {
+      editorIsComposing = true;
+      historyGroup = null;
+    });
+
+    diffEditor.addEventListener("compositionend", () => {
+      editorIsComposing = false;
+      requestAnimationFrame(() => {
+        const selection = getSelectionOffsets();
+        modifiedText = extractEditableText(diffEditor);
+        renderDiff(originalText, modifiedText, selection);
+        commitHistory(modifiedText, selection.start, selection.end);
+      });
+    });
+
+    diffEditor.addEventListener("beforeinput", event => {
+      if (editorIsComposing || event.isComposing || isRendering) return;
+
+      const { start, end } = getSelectionOffsets();
+
+      switch (event.inputType) {
+        case "historyUndo":
+          event.preventDefault();
+          undo();
+          return;
+        case "historyRedo":
+          event.preventDefault();
+          redo();
+          return;
+        case "insertText":
+        case "insertReplacementText":
+          event.preventDefault();
+          replaceModelRange(start, end, event.data ?? "", "typing");
+          return;
+        case "insertParagraph":
+        case "insertLineBreak":
+          event.preventDefault();
+          replaceModelRange(start, end, "\n");
+          return;
+        case "deleteContentBackward": {
+          event.preventDefault();
+          const deleteStart = start === end
+            ? previousCodePointStart(modifiedText, start)
+            : start;
+          replaceModelRange(deleteStart, end, "", "backspace");
+          return;
+        }
+        case "deleteContentForward": {
+          event.preventDefault();
+          const deleteEnd = start === end
+            ? nextCodePointEnd(modifiedText, end)
+            : end;
+          replaceModelRange(start, deleteEnd, "", "delete");
+          return;
+        }
+        case "deleteByCut":
+        case "deleteByDrag":
+        case "deleteContent":
+          event.preventDefault();
+          replaceModelRange(start, end, "");
+          return;
+      }
+    });
+
+    /* 兜底：只在浏览器执行了未接管的编辑时读取 DOM。 */
+    diffEditor.addEventListener("input", event => {
+      if (editorIsComposing || event.isComposing || isRendering) return;
+      const selection = getSelectionOffsets();
+      const text = extractEditableText(diffEditor);
+      if (text === modifiedText) return;
+      modifiedText = text;
+      renderDiff(originalText, modifiedText, selection);
+      commitHistory(modifiedText, selection.start, selection.end);
+    });
+
+    diffEditor.addEventListener("paste", event => {
+      event.preventDefault();
+      const { start, end } = getSelectionOffsets();
+      const text = event.clipboardData?.getData("text/plain") ?? "";
+      replaceModelRange(start, end, text);
+    });
+
+    diffEditor.addEventListener("cut", event => {
+      const { start, end } = getSelectionOffsets();
+      if (start === end) return;
+      event.preventDefault();
+      event.clipboardData?.setData("text/plain", modifiedText.slice(start, end));
+      replaceModelRange(start, end, "");
+    });
+
+    diffEditor.addEventListener("click", event => {
+      const deleted = event.target.closest?.('[data-diff-type="delete"]');
+      if (deleted) {
+        event.preventDefault();
+        placeCaretBeforeDeleted(deleted);
+      }
+    });
+
+    diffEditor.addEventListener("keydown", event => {
+      const command = event.ctrlKey || event.metaKey;
+      if (command && !event.altKey && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        event.shiftKey ? redo() : undo();
+        return;
+      }
+      if (command && !event.altKey && event.key.toLowerCase() === "y") {
+        event.preventDefault();
+        redo();
+        return;
+      }
+      if (event.key === "Tab") {
+        event.preventDefault();
+        const { start, end } = getSelectionOffsets();
+        replaceModelRange(start, end, "\t");
+      }
+    });
+
+    applyButton.addEventListener("click", () => {
+      inputText.value = modifiedText;
+      updateFromSource();
+      inputText.focus();
+    });
+
+    copyButton.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(modifiedText);
+        showCopyResult("已复制");
+      } catch {
+        const temporaryTextArea = document.createElement("textarea");
+        temporaryTextArea.value = modifiedText;
+        temporaryTextArea.style.position = "fixed";
+        temporaryTextArea.style.opacity = "0";
+        document.body.appendChild(temporaryTextArea);
+        temporaryTextArea.select();
+        const copied = document.execCommand("copy");
+        temporaryTextArea.remove();
+        showCopyResult(copied ? "已复制" : "复制失败");
+      }
+    });
+
+    function showCopyResult(message) {
+      const originalLabel = copyButton.textContent;
+      copyButton.textContent = message;
+      copyButton.disabled = true;
+      setTimeout(() => {
+        copyButton.textContent = originalLabel;
+        copyButton.disabled = false;
+      }, 1000);
+    }
+
+    updateFromSource();
+  </script>
+</body>
+</html>
