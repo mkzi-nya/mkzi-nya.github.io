@@ -284,6 +284,10 @@
     let historyGroup = null;
     let historyTimer = 0;
 
+    const STORAGE_KEY = "wf-text-diff-editor-state-v1";
+    const MAX_SAVED_HISTORY = 200;
+    let saveTimer = 0;
+
     function isChineseCharacter(character) {
       return Boolean(character) && /\p{Script=Han}/u.test(character);
     }
@@ -660,12 +664,130 @@
       return result.replace(/\r\n?/g, "\n");
     }
 
+
+    function getCurrentSelectionForSave() {
+      if (document.activeElement === diffEditor) {
+        return getSelectionOffsets();
+      }
+
+      const state = history[historyIndex];
+      return state
+        ? { start: state.start, end: state.end }
+        : { start: modifiedText.length, end: modifiedText.length };
+    }
+
+    function buildSavedState() {
+      const selection = getCurrentSelectionForSave();
+      const firstHistoryIndex = Math.max(0, history.length - MAX_SAVED_HISTORY);
+      const savedHistory = history.slice(firstHistoryIndex);
+      const savedHistoryIndex = Math.max(
+        0,
+        Math.min(historyIndex - firstHistoryIndex, savedHistory.length - 1)
+      );
+
+      return {
+        version: 1,
+        sourceText: inputText.value.replace(/\r\n?/g, "\n"),
+        originalText,
+        modifiedText,
+        selection,
+        history: savedHistory,
+        historyIndex: savedHistoryIndex,
+        savedAt: Date.now()
+      };
+    }
+
+    function saveStateNow() {
+      clearTimeout(saveTimer);
+      saveTimer = 0;
+
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(buildSavedState()));
+      } catch (error) {
+        console.warn("无法保存当前页面状态：", error);
+      }
+    }
+
+    function scheduleStateSave() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(saveStateNow, 120);
+    }
+
+    function isValidHistoryState(state) {
+      return state &&
+        typeof state.text === "string" &&
+        Number.isInteger(state.start) &&
+        Number.isInteger(state.end);
+    }
+
+    function restoreSavedState() {
+      let saved;
+
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return false;
+        saved = JSON.parse(raw);
+      } catch (error) {
+        console.warn("无法读取已保存的页面状态：", error);
+        return false;
+      }
+
+      if (!saved || saved.version !== 1 ||
+          typeof saved.sourceText !== "string" ||
+          typeof saved.modifiedText !== "string") {
+        return false;
+      }
+
+      inputText.value = saved.sourceText;
+      originalText = typeof saved.originalText === "string"
+        ? saved.originalText
+        : saved.sourceText;
+      modifiedText = saved.modifiedText;
+
+      history.length = 0;
+      if (Array.isArray(saved.history)) {
+        for (const state of saved.history) {
+          if (!isValidHistoryState(state)) continue;
+          history.push({
+            text: state.text,
+            start: Math.max(0, Math.min(state.start, state.text.length)),
+            end: Math.max(0, Math.min(state.end, state.text.length))
+          });
+        }
+      }
+
+      if (!history.length) {
+        history.push({
+          text: modifiedText,
+          start: modifiedText.length,
+          end: modifiedText.length
+        });
+      }
+
+      historyIndex = Number.isInteger(saved.historyIndex)
+        ? Math.max(0, Math.min(saved.historyIndex, history.length - 1))
+        : history.length - 1;
+
+      const savedSelection = saved.selection &&
+        Number.isInteger(saved.selection.start) &&
+        Number.isInteger(saved.selection.end)
+          ? {
+              start: Math.max(0, Math.min(saved.selection.start, modifiedText.length)),
+              end: Math.max(0, Math.min(saved.selection.end, modifiedText.length))
+            }
+          : null;
+
+      renderDiff(originalText, modifiedText, savedSelection);
+      return true;
+    }
+
     function resetHistory(text, caret = text.length) {
       history.length = 0;
       history.push({ text, start: caret, end: caret });
       historyIndex = 0;
       historyGroup = null;
       clearTimeout(historyTimer);
+      scheduleStateSave();
     }
 
     function commitHistory(text, start, end, group = null) {
@@ -688,6 +810,7 @@
       historyGroup = group;
       clearTimeout(historyTimer);
       historyTimer = setTimeout(() => { historyGroup = null; }, 700);
+      scheduleStateSave();
     }
 
     function restoreHistory(index) {
@@ -697,6 +820,7 @@
       const state = history[index];
       modifiedText = state.text;
       renderDiff(originalText, modifiedText, state);
+      scheduleStateSave();
     }
 
     function undo() { restoreHistory(historyIndex - 1); }
@@ -739,6 +863,7 @@
       modifiedText = transformText(originalText);
       renderDiff(originalText, modifiedText);
       resetHistory(modifiedText);
+      scheduleStateSave();
     }
 
     function placeCaretBeforeDeleted(span) {
@@ -904,6 +1029,11 @@
       }
     });
 
+    window.addEventListener("beforeunload", saveStateNow);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") saveStateNow();
+    });
+
     function showCopyResult(message) {
       const originalLabel = copyButton.textContent;
       copyButton.textContent = message;
@@ -914,7 +1044,9 @@
       }, 1000);
     }
 
-    updateFromSource();
+    if (!restoreSavedState()) {
+      updateFromSource();
+    }
   </script>
 </body>
 </html>
