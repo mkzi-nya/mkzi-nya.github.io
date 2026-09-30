@@ -28,7 +28,6 @@
   let lastInputFileName = '';       // 原始文件名（用于下载命名）
   let lastComputedOut = { w:0, h:0 };
   let hasCompletedRender = false;
-  let renderMode = 'png';
   let lastOutputBlob = null;
 
   function fmtTime(ms){
@@ -215,8 +214,8 @@
 
   function setCanvasSize(target, width, height, contextOptions){
     try{
-      target.width = width;
-      target.height = height;
+      if(target.width!==width) target.width=width;
+      if(target.height!==height) target.height=height;
     }catch{
       throw new Error('无法分配画布内存');
     }
@@ -225,92 +224,100 @@
     return ctx;
   }
 
-  async function zip64(entries){
-    const encoder = new TextEncoder();
+  function createPngEncoder(width, height){
     const crcTable = new Uint32Array(256);
     for(let n=0;n<256;n++){
       let c=n;
       for(let k=0;k<8;k++) c=(c&1) ? 0xedb88320^(c>>>1) : c>>>1;
       crcTable[n]=c>>>0;
     }
-    const crcFor = async blob=>{
+    const crcFor = (first,second)=>{
       let crc=0xffffffff;
-      const consume=async bytes=>{
+      for(const bytes of [first,second]){
         for(let i=0;i<bytes.length;i++) crc=crcTable[(crc^bytes[i])&255]^(crc>>>8);
-        await yieldToBrowser();
-      };
-      if(blob.stream){
-        const stream=blob.stream().getReader();
-        while(true){
-          if(cancelFlag){ stream.cancel(); throw new Error('已停止'); }
-          const {done,value}=await stream.read();
-          if(done) break;
-          await consume(value);
-        }
-      }else{
-        const bytes=new Uint8Array(await blob.arrayBuffer());
-        for(let offset=0;offset<bytes.length;offset+=256*1024){
-          if(cancelFlag) throw new Error('已停止');
-          await consume(bytes.subarray(offset,Math.min(bytes.length,offset+256*1024)));
-        }
       }
       return (crc^0xffffffff)>>>0;
     };
-    const header=(size)=>new Uint8Array(size);
-    const write16=(view,offset,value)=>view.setUint16(offset,value,true);
-    const write32=(view,offset,value)=>view.setUint32(offset,value>>>0,true);
-    const write64=(view,offset,value)=>{
-      const number=Number(value);
-      write32(view,offset,number%0x100000000);
-      write32(view,offset+4,Math.floor(number/0x100000000));
+    const chunk=(type,data)=>{
+      const name=new TextEncoder().encode(type);
+      const header=new Uint8Array(8);
+      new DataView(header.buffer).setUint32(0,data.length);
+      header.set(name,4);
+      const footer=new Uint8Array(4);
+      new DataView(footer.buffer).setUint32(0,crcFor(name,data));
+      return [header,data,footer];
     };
-    const parts=[];
-    const central=[];
-    let offset=0;
-    const now=new Date();
-    const dosTime=(now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1);
-    const dosDate=((Math.max(1980,now.getFullYear())-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate();
-
-    for(const entry of entries){
-      if(cancelFlag) throw new Error('已停止');
-      const name=encoder.encode(entry.name);
-      const size=entry.blob.size;
-      const crc=await crcFor(entry.blob);
-      const local=header(30+name.length+20);
-      const lv=new DataView(local.buffer);
-      write32(lv,0,0x04034b50); write16(lv,4,45); write16(lv,6,0x800); write16(lv,8,0);
-      write16(lv,10,dosTime); write16(lv,12,dosDate); write32(lv,14,crc);
-      write32(lv,18,0xffffffff); write32(lv,22,0xffffffff); write16(lv,26,name.length); write16(lv,28,20);
-      local.set(name,30); write16(lv,30+name.length,0x0001); write16(lv,32+name.length,16);
-      write64(lv,34+name.length,size); write64(lv,42+name.length,size);
-      parts.push(local,entry.blob);
-
-      const record=header(46+name.length+28);
-      const cv=new DataView(record.buffer);
-      write32(cv,0,0x02014b50); write16(cv,4,45); write16(cv,6,45); write16(cv,8,0x800); write16(cv,10,0);
-      write16(cv,12,dosTime); write16(cv,14,dosDate); write32(cv,16,crc);
-      write32(cv,20,0xffffffff); write32(cv,24,0xffffffff); write16(cv,28,name.length); write16(cv,30,28);
-      write16(cv,32,0); write16(cv,34,0); write16(cv,36,0); write32(cv,38,0); write32(cv,42,0xffffffff);
-      record.set(name,46); write16(cv,46+name.length,0x0001); write16(cv,48+name.length,24);
-      write64(cv,50+name.length,size); write64(cv,58+name.length,size); write64(cv,66+name.length,offset);
-      central.push(record);
-      offset+=local.length+size;
-      pText.textContent=`正在打包 ZIP：${central.length}/${entries.length} 块`;
+    const ihdr=new Uint8Array(13);
+    const view=new DataView(ihdr.buffer);
+    view.setUint32(0,width); view.setUint32(4,height);
+    ihdr[8]=8; ihdr[9]=6;
+    const parts=[new Uint8Array([137,80,78,71,13,10,26,10]),...chunk('IHDR',ihdr)];
+    let writeCompressed, finishCompressed, abortCompressed;
+    if(typeof CompressionStream !== 'undefined'){
+      const stream=new CompressionStream('deflate');
+      const writer=stream.writable.getWriter();
+      const pump=(async()=>{
+        const reader=stream.readable.getReader();
+        while(true){
+          const {done,value}=await reader.read();
+          if(done) break;
+          parts.push(...chunk('IDAT',value));
+        }
+      })();
+      writeCompressed=bytes=>writer.write(bytes);
+      finishCompressed=async()=>{ await writer.close(); await pump; };
+      abortCompressed=async()=>{ await writer.abort(new Error('已停止')).catch(()=>{}); await pump.catch(()=>{}); };
+    }else{
+      // 老浏览器没有 CompressionStream 时，使用 zlib 的无压缩块保持单张 PNG 可用。
+      parts.push(...chunk('IDAT',new Uint8Array([0x78,0x01])));
+      let adlerA=1, adlerB=0;
+      writeCompressed=async bytes=>{
+        for(let pos=0;pos<bytes.length;pos+=65535){
+          const data=bytes.subarray(pos,Math.min(pos+65535,bytes.length));
+          const block=new Uint8Array(5+data.length);
+          const length=data.length;
+          block[1]=length&255; block[2]=length>>>8;
+          block[3]=~length&255; block[4]=(~length>>>8)&255;
+          block.set(data,5);
+          for(let i=0;i<length;i++){
+            adlerA+=data[i];
+            adlerB+=adlerA;
+          }
+          adlerA%=65521;
+          adlerB%=65521;
+          parts.push(...chunk('IDAT',block));
+        }
+      };
+      finishCompressed=async()=>{
+        const end=new Uint8Array([1,0,0,255,255,adlerB>>>8,adlerB&255,adlerA>>>8,adlerA&255]);
+        parts.push(...chunk('IDAT',end));
+      };
+      abortCompressed=async()=>{};
     }
-
-    const centralOffset=offset;
-    for(const record of central){ parts.push(record); offset+=record.length; }
-    const centralSize=offset-centralOffset;
-    const zip64End=header(56); const zv=new DataView(zip64End.buffer);
-    write32(zv,0,0x06064b50); write64(zv,4,44); write16(zv,12,45); write16(zv,14,45);
-    write32(zv,16,0); write32(zv,20,0); write64(zv,24,entries.length); write64(zv,32,entries.length);
-    write64(zv,40,centralSize); write64(zv,48,centralOffset); parts.push(zip64End);
-    const locator=header(20); const zv2=new DataView(locator.buffer);
-    write32(zv2,0,0x07064b50); write32(zv2,4,0); write64(zv2,8,offset); write32(zv2,16,1); parts.push(locator);
-    const end=header(22); const ev=new DataView(end.buffer);
-    write32(ev,0,0x06054b50); write16(ev,4,0); write16(ev,6,0); write16(ev,8,0xffff); write16(ev,10,0xffff);
-    write32(ev,12,0xffffffff); write32(ev,16,0xffffffff); write16(ev,20,0); parts.push(end);
-    return new Blob(parts,{type:'application/zip'});
+    let buffer=new Uint8Array(256*1024), used=0;
+    async function append(bytes){
+      for(let pos=0;pos<bytes.length;){
+        const count=Math.min(buffer.length-used,bytes.length-pos);
+        buffer.set(bytes.subarray(pos,pos+count),used);
+        used+=count; pos+=count;
+        if(used===buffer.length){
+          await writeCompressed(buffer);
+          buffer=new Uint8Array(256*1024); used=0;
+        }
+      }
+    }
+    return {
+      append,
+      async finish(){
+        if(used) await writeCompressed(buffer.subarray(0,used));
+        await finishCompressed();
+        parts.push(...chunk('IEND',new Uint8Array(0)));
+        return new Blob(parts,{type:'image/png'});
+      },
+      async abort(){
+        await abortCompressed();
+      }
+    };
   }
 
   function setPreviewSize(outW,outH){
@@ -379,14 +386,18 @@
       if(!Number.isSafeInteger(total) || !Number.isSafeInteger(outW*outH)) throw new Error('输入图尺寸超出浏览器可表示范围');
       const mobile=navigator.userAgentData?.mobile || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
       const memoryGb=navigator.deviceMemory || 2;
-      const singlePixelBudget=mobile || memoryGb<=2 ? 2_000_000 : memoryGb<=4 ? 4_000_000 : 8_000_000;
+      const singlePixelBudget=mobile || memoryGb<=2 ? 3_000_000 : memoryGb<=4 ? 4_000_000 : 8_000_000;
       const singleMaxSide=mobile || memoryGb<=2 ? 4096 : memoryGb<=4 ? 8192 : 16384;
-      const singleImage=outW<=singleMaxSide && outH<=singleMaxSide && outW*outH<=singlePixelBudget;
-      const preview=singleImage ? null : setPreviewSize(outW,outH);
+      let singleImage=outW<=singleMaxSide && outH<=singleMaxSide && outW*outH<=singlePixelBudget;
       if(singleImage){
-        const ctx=setCanvasSize(canvas,outW,outH);
-        ctx.clearRect(0,0,outW,outH);
+        try{
+          const ctx=setCanvasSize(canvas,outW,outH);
+          ctx.clearRect(0,0,outW,outH);
+        }catch{
+          singleImage=false;
+        }
       }
+      const preview=singleImage ? null : setPreviewSize(outW,outH);
 
       setProgress(0,total,startTs,gridW,gridH);
       const updateCellProgress=()=>{
@@ -402,52 +413,70 @@
         const {data}=downsampleToPixels(srcImg,tileStep);
         const ctx=canvas.getContext('2d');
         await paintTiles(null,1,data,gridW,0,0,gridW,gridH,entries,ctx,0,0,updateCellProgress);
-        renderMode='png';
       }else{
-        renderMode='zip';
         const cellsPerChunk=(mobile || memoryGb<=2) ? 64 : 128;
-        const chunkCanvas=document.createElement('canvas');
         const inputCanvas=document.createElement('canvas');
-        const chunkEntries=[];
-        const chunkRows=Math.ceil(gridH/cellsPerChunk), chunkCols=Math.ceil(gridW/cellsPerChunk);
-        for(let cy=0;cy<chunkRows && !cancelFlag;cy++){
-          for(let cx=0;cx<chunkCols && !cancelFlag;cx++){
-            const x0=cx*cellsPerChunk, y0=cy*cellsPerChunk;
-            const cw=Math.min(cellsPerChunk,gridW-x0), ch=Math.min(cellsPerChunk,gridH-y0);
-            const inCtx=setCanvasSize(inputCanvas,cw,ch,{willReadFrequently:true});
-            inCtx.imageSmoothingEnabled=true;
-            inCtx.drawImage(srcImg,x0*srcImg.width/gridW,y0*srcImg.height/gridH,cw*srcImg.width/gridW,ch*srcImg.height/gridH,0,0,cw,ch);
-            const data=inCtx.getImageData(0,0,cw,ch).data;
-            const outCtx=setCanvasSize(chunkCanvas,cw*16,ch*16);
-            outCtx.clearRect(0,0,cw*16,ch*16);
-            await paintTiles(preview.ctx,preview.scale,data,cw,x0,y0,cw,ch,entries,outCtx,0,0,updateCellProgress);
-            if(cancelFlag) break;
-            const blob=await canvasBlob(chunkCanvas);
-            const suffix=(n)=>String(n).padStart(5,'0');
-            chunkEntries.push({name:`tiles/y${suffix(cy)}_x${suffix(cx)}.png`,blob});
-            chunkCanvas.width=0; chunkCanvas.height=0;
-            inputCanvas.width=0; inputCanvas.height=0;
-            await yieldToBrowser();
-          }
+        const textureCanvas=document.createElement('canvas');
+        const textureCtx=setCanvasSize(textureCanvas,16,16,{willReadFrequently:true});
+        for(const entry of entries){
+          textureCtx.clearRect(0,0,16,16);
+          textureCtx.drawImage(entry.img,0,0,16,16);
+          entry.pixels=textureCtx.getImageData(0,0,16,16).data;
         }
-        if(cancelFlag){ pText.textContent='已停止'; return; }
-        const manifest={
-          format:'mc-tile-map-chunks-v1',
-          output:{width:outW,height:outH},
-          tilePixels:16,
-          chunkTiles:cellsPerChunk,
-          grid:{width:gridW,height:gridH},
-          chunks:{rows:chunkRows,columns:chunkCols,pathPattern:'tiles/y{row}_x{column}.png',indexPadding:5}
-        };
-        chunkEntries.push({name:'manifest.json',blob:new Blob([JSON.stringify(manifest,null,2)],{type:'application/json'})});
-        const zip=await zip64(chunkEntries);
-        lastOutputBlob=zip;
+        textureCanvas.width=0;
+        const encoder=createPngEncoder(outW,outH);
+        try{
+          let lastYieldAt=performance.now();
+          for(let y=0;y<gridH;y++){
+            const selected=new Array(gridW);
+            for(let x0=0;x0<gridW;x0+=cellsPerChunk){
+              if(cancelFlag) throw new Error('已停止');
+              const cw=Math.min(cellsPerChunk,gridW-x0);
+              const inCtx=setCanvasSize(inputCanvas,cw,1,{willReadFrequently:true});
+              inCtx.clearRect(0,0,cw,1);
+              inCtx.imageSmoothingEnabled=true;
+              inCtx.drawImage(srcImg,x0*srcImg.width/gridW,y*srcImg.height/gridH,cw*srcImg.width/gridW,srcImg.height/gridH,0,0,cw,1);
+              const data=inCtx.getImageData(0,0,cw,1).data;
+              for(let x=0;x<cw;x++){
+                const p=x*4, a=data[p+3];
+                const entry=a>10 ? pickBlock(data[p],data[p+1],data[p+2],a,entries) : null;
+                selected[x0+x]=entry;
+                if(entry) preview.ctx.drawImage(entry.img,(x0+x)*16*preview.scale,y*16*preview.scale,16*preview.scale,16*preview.scale);
+                updateCellProgress();
+              }
+              if(performance.now()-lastYieldAt>=12){
+                await yieldToBrowser();
+                lastYieldAt=performance.now();
+              }
+            }
+            for(let py=0;py<16;py++){
+              if(cancelFlag) throw new Error('已停止');
+              await encoder.append(new Uint8Array([0])); // PNG 滤镜 0：每一行的首字节
+              for(let x0=0;x0<gridW;x0+=cellsPerChunk){
+                const cw=Math.min(cellsPerChunk,gridW-x0);
+                const pixels=new Uint8Array(cw*16*4);
+                for(let x=0;x<cw;x++){
+                  const entry=selected[x0+x];
+                  if(entry) pixels.set(entry.pixels.subarray(py*64,py*64+64),x*64);
+                }
+                await encoder.append(pixels);
+              }
+            }
+            if((y&7)===7) await yieldToBrowser();
+          }
+          inputCanvas.width=0;
+          pText.textContent='正在完成单张 PNG 编码…';
+          lastOutputBlob=await encoder.finish();
+        }catch(e){
+          await encoder.abort();
+          throw e;
+        }
       }
 
       if(cancelFlag){ pText.textContent='已停止'; return; }
       setProgress(total,total,startTs,gridW,gridH);
       hasCompletedRender=true;
-      dlBtn.textContent=renderMode==='zip'?'重新下载 ZIP':'下载 PNG';
+      dlBtn.textContent='下载 PNG';
     }finally{
       setRunningUI(false);
     }
@@ -459,8 +488,8 @@
 
   function downloadPNG(){
     const base = (lastInputFileName || 'image').replace(/\.[^.]+$/,'');
-    if(renderMode==='zip'){
-      if(lastOutputBlob) downloadBlob(lastOutputBlob,`${base}_${makeStamp()}_tiles.zip`);
+    if(lastOutputBlob){
+      downloadBlob(lastOutputBlob,`${base}_${makeStamp()}.png`);
       return;
     }
     canvasBlob(canvas).then(blob=>downloadBlob(blob,`${base}_${makeStamp()}.png`)).catch(e=>{
