@@ -1,0 +1,3554 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>词页 · 英语词汇册</title>
+    <!-- 单文件维护：样式、HTML 骨架、词库 JSON、应用脚本依次排列；无需外部库或构建。 -->
+    <style>
+      /* 01 · 主题与尺寸：修改配色、卡片比例优先调整这里 */
+      :root {
+        color-scheme: light;
+        --bg: #f2f1ed;
+        --paper: #fffefa;
+        --ink: #252c28;
+        --muted: #727b71;
+        --soft: #e8ece5;
+        --line: #e0e2da;
+        --accent: #364e3d;
+        --control: #fffefa;
+        --control-shadow: 0 1px 2px #26352908, 0 4px 10px #26352903;
+        --focus: 0 0 0 3px #698b5d20;
+        --ease: cubic-bezier(0.22, 0.8, 0.25, 1);
+        --card-height: 420px;
+        --page-width: 1040px;
+        --study-width: 860px;
+      }
+      body.dark {
+        color-scheme: dark;
+        --bg: #171c18;
+        --paper: #222a23;
+        --ink: #e9ece3;
+        --muted: #a5afa1;
+        --soft: #2c382d;
+        --line: #374238;
+        --accent: #b8c9ac;
+        --control: #2b342d;
+        --control-shadow: 0 1px 2px #0002;
+        --focus: 0 0 0 3px #abc3a023;
+      }
+
+      /* 02 · 基础排版与通用控件 */
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.65 -apple-system,
+          BlinkMacSystemFont,
+          'PingFang SC',
+          'Segoe UI',
+          sans-serif;
+        -webkit-tap-highlight-color: transparent;
+      }
+      body,
+      header,
+      button,
+      input,
+      select,
+      .chapter,
+      .card,
+      .tablewrap,
+      tr,
+      th,
+      td {
+        transition:
+          background-color 0.28s ease,
+          color 0.28s ease,
+          border-color 0.28s ease,
+          box-shadow 0.22s ease;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      button {
+        cursor: pointer;
+        touch-action: manipulation;
+        border: 1px solid var(--line);
+        background: transparent;
+        border-radius: 8px;
+        padding: 9px 15px;
+      }
+      button:hover {
+        background: var(--soft);
+      }
+      button:not(:disabled):active {
+        transform: scale(0.97);
+      }
+      button:disabled {
+        opacity: 0.38;
+        cursor: default;
+      }
+      button:focus-visible,
+      select:focus-visible,
+      .card:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 4px;
+      }
+      h1 {
+        margin: 0;
+        line-height: 1.4;
+      }
+      h2 {
+        font-weight: 500;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .small {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .translation {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.8;
+        margin-top: 6px;
+      }
+      .empty {
+        padding: 70px 20px;
+        text-align: center;
+        color: var(--muted);
+        border: 1px dashed var(--line);
+        border-radius: 12px;
+        background: var(--paper);
+      }
+
+      /* 03 · 顶栏与页面容器 */
+      header {
+        max-width: 1104px;
+        margin: auto;
+        height: 88px;
+        padding: 0 32px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+      }
+      .brand {
+        font:
+          25px 'Songti SC',
+          Georgia,
+          serif;
+        letter-spacing: 4px;
+      }
+      nav {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        padding: 3px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+      }
+      nav button {
+        min-height: 36px;
+        padding: 6px 15px;
+        border: 0;
+        border-radius: 10px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      nav button.active {
+        background: var(--paper);
+        box-shadow: 0 1px 3px #223c2810;
+        color: var(--ink);
+      }
+      nav button:hover {
+        color: var(--ink);
+      }
+      #theme {
+        margin-left: 4px;
+        border-left: 1px solid var(--line);
+        border-radius: 0 9px 9px 0;
+        background: transparent;
+        min-height: 30px;
+        min-width: 50px;
+        padding: 4px 13px;
+        font-size: 12px;
+      }
+      main {
+        max-width: var(--page-width);
+        margin: auto;
+        padding: 26px 32px 50px;
+      }
+      #home {
+        padding-top: 6px;
+      }
+      #workspace {
+        max-width: var(--study-width);
+        margin: auto;
+      }
+      .studyhead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        margin-bottom: 22px;
+      }
+      .studyhead h1 {
+        font:
+          500 29px/1.4 'Songti SC',
+          Georgia,
+          serif;
+      }
+      #chapterSelect,
+      .settings select {
+        appearance: none;
+        -webkit-appearance: none;
+        background-color: var(--control);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m5 6 3 3 3-3' fill='none' stroke='%23778073' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 9px 34px 9px 13px;
+        min-height: 40px;
+        font-size: 12px;
+        line-height: 1.4;
+        cursor: pointer;
+        transition:
+          border-color 0.18s,
+          box-shadow 0.18s,
+          background-color 0.25s;
+      }
+      #chapterSelect {
+        max-width: 240px;
+        background-color: transparent;
+      }
+      #chapterSelect:hover,
+      .settings select:hover {
+        border-color: var(--muted);
+      }
+      #chapterSelect:focus-visible,
+      .settings select:focus-visible {
+        outline: none;
+        box-shadow: var(--focus);
+        border-color: var(--accent);
+      }
+
+      /* 04 · 章节目录 */
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+      .chapter {
+        text-align: left;
+        min-height: 151px;
+        padding: 30px 32px;
+        position: relative;
+        border: 1px solid var(--line);
+        border-radius: 15px;
+        background: linear-gradient(145deg, var(--paper), var(--bg));
+        box-shadow:
+          0 2px 2px #28392a02,
+          0 12px 28px -24px #28392a35;
+        transition:
+          transform 0.28s var(--ease),
+          box-shadow 0.28s ease,
+          background-color 0.28s ease,
+          border-color 0.28s ease;
+      }
+      .chapter h2 {
+        font:
+          500 23px/1.5 'Songti SC',
+          'STSong',
+          Georgia,
+          serif;
+        letter-spacing: 0.2px;
+        margin: 0 35px 0 0;
+      }
+      .chapter:before {
+        content: attr(data-count);
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+        letter-spacing: 1px;
+        margin-bottom: 14px;
+        font-variant-numeric: tabular-nums;
+      }
+      .chapter:after {
+        content: '↗';
+        position: absolute;
+        top: 33px;
+        right: 28px;
+        width: 32px;
+        height: 32px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 50%;
+        color: var(--muted);
+        font-size: 16px;
+        transition:
+          transform 0.25s var(--ease),
+          color 0.25s ease;
+      }
+
+      /* 05 · 闪卡：正反面共享固定高度，只有背面正文滚动 */
+      .card {
+        height: var(--card-height);
+        min-height: 0;
+        padding: 54px 30px 22px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: var(--paper);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+        text-align: center;
+        overflow-wrap: anywhere;
+        box-shadow:
+          0 2px 3px #263a2902,
+          0 20px 50px -36px #263a293d;
+        transform-origin: 50% 50%;
+        backface-visibility: hidden;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: pan-y pinch-zoom;
+        cursor: grab;
+      }
+      .card:active {
+        cursor: grabbing;
+      }
+      .card > * {
+        flex-shrink: 0;
+      }
+      .card button {
+        cursor: pointer;
+      }
+      .card .eyebrow {
+        position: absolute;
+        top: 20px;
+        left: 24px;
+        width: calc(100% - 48px);
+        margin: 0;
+        font-size: 10px;
+        line-height: 1.5;
+        color: var(--muted);
+        letter-spacing: 1px;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: left;
+      }
+      .word {
+        font:
+          normal clamp(32px, 4vw, 50px)/1.25 Georgia,
+          'Times New Roman',
+          serif;
+        letter-spacing: -1px;
+        text-wrap: balance;
+        margin: 8px 0 12px;
+        max-width: 100%;
+      }
+      .phonetic {
+        font:
+          16px/1.7 Georgia,
+          serif;
+        color: var(--muted);
+      }
+      .phonetic span {
+        margin-left: 10px;
+        font-size: 13px;
+      }
+      .actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin: 18px 0;
+      }
+      .card > .actions {
+        margin: 14px 0 0;
+      }
+      .card .actions button {
+        background: var(--accent);
+        color: var(--paper);
+        border: 1px solid var(--accent);
+        border-radius: 50px;
+        padding: 9px 22px;
+        min-height: 42px;
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.6px;
+        box-shadow: 0 4px 10px -6px #243c2955;
+      }
+      .dark .card .actions button {
+        color: var(--bg);
+      }
+      .card .actions button:hover {
+        background: var(--accent);
+        filter: brightness(1.08);
+      }
+      .flipHint {
+        font-size: 11px;
+        line-height: 1.6;
+        color: var(--muted);
+        margin-top: 14px;
+        letter-spacing: 0.2px;
+        opacity: 0.85;
+      }
+      .card + .actions {
+        margin-top: 18px;
+        padding: 0 2px;
+      }
+      .card + .actions > button {
+        min-height: 44px;
+        min-width: 124px;
+        border: 1px solid var(--line);
+        background: transparent;
+        border-radius: 9px;
+        padding: 10px 18px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--ink);
+      }
+      .card + .actions > button:not(:disabled):hover {
+        border-color: var(--accent);
+        background: var(--paper);
+        box-shadow: 0 4px 14px -10px #29452d60;
+      }
+      .card + .actions > button:disabled {
+        background: transparent;
+        box-shadow: none;
+      }
+      .card.is-revealed {
+        justify-content: flex-start;
+      }
+      .card.is-revealed .word {
+        font-size: 32px;
+        line-height: 1.2;
+        margin: 0 0 5px;
+      }
+      .card.is-revealed .phonetic {
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .card.is-revealed > .actions,
+      .card.is-revealed .flipHint {
+        display: none;
+      }
+      .answer {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
+        overscroll-behavior: contain;
+        touch-action: pan-y pinch-zoom;
+        scrollbar-width: thin;
+        scrollbar-color: var(--line) transparent;
+        margin-top: 15px;
+        padding: 15px 5px 4px;
+        border-top: 1px solid var(--line);
+        width: 100%;
+        text-align: center;
+      }
+      .meaning {
+        font-size: 20px;
+        line-height: 1.5;
+        font-weight: 500;
+        text-wrap: pretty;
+        margin: 0;
+      }
+      .example {
+        font:
+          18px/1.65 Georgia,
+          serif;
+        margin: 13px 0 0;
+        overflow-wrap: anywhere;
+      }
+      .example strong {
+        font-weight: 600;
+        color: var(--accent);
+      }
+      .tablebtn {
+        min-height: 40px;
+        border-radius: 6px;
+        border: 0;
+        color: var(--accent);
+        font-size: 12px;
+      }
+      .card .tablebtn {
+        background: var(--soft);
+        border: 1px solid transparent;
+        border-radius: 50px;
+        padding: 6px 15px;
+        margin: 11px 0 3px;
+        min-height: 36px;
+      }
+      .card .tablebtn:hover {
+        border-color: var(--line);
+      }
+      .answer::-webkit-scrollbar {
+        width: 3px;
+      }
+      .answer::-webkit-scrollbar-thumb {
+        background: var(--line);
+        border-radius: 4px;
+      }
+
+      /* 06 · 词表：桌面表格，手机逐词排版 */
+      .tablewrap {
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--paper);
+        box-shadow: 0 8px 26px -22px #263e2a30;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+      }
+      th {
+        padding: 15px 20px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--muted);
+        background: var(--soft);
+        letter-spacing: 0.3px;
+      }
+      td {
+        padding: 19px 20px;
+        vertical-align: top;
+        line-height: 1.7;
+      }
+      td,
+      th {
+        border-bottom: 1px solid var(--line);
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      td:first-child {
+        min-width: 180px;
+      }
+      td:nth-child(2) {
+        min-width: 130px;
+      }
+      td:nth-child(3) {
+        min-width: 190px;
+      }
+      td:nth-child(4) {
+        min-width: 270px;
+      }
+      td .en {
+        font:
+          21px/1.4 Georgia,
+          serif;
+        letter-spacing: -0.3px;
+      }
+      td:first-child .small {
+        font-size: 11px;
+        margin-top: 6px;
+      }
+      #workspace:not(.allchapters) td:first-child .small {
+        display: none;
+      }
+      .tablewrap .tablebtn {
+        border: 1px solid var(--line);
+        background: var(--soft);
+        border-radius: 50px;
+        padding: 4px 12px;
+        min-height: 31px;
+        margin-top: 9px;
+        font-size: 11px;
+      }
+      .tablewrap .tablebtn:hover {
+        border-color: var(--accent);
+      }
+
+      /* 07 · 发音设置与状态反馈 */
+      details {
+        max-width: var(--study-width);
+        margin: 30px auto 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      summary {
+        cursor: pointer;
+        list-style: none;
+        width: fit-content;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        color: var(--muted);
+        font-size: 11px;
+        letter-spacing: 0.2px;
+        transition:
+          background 0.2s,
+          border-color 0.2s;
+      }
+      summary::-webkit-details-marker {
+        display: none;
+      }
+      summary:after {
+        content: ' ＋';
+        display: inline-block;
+        margin-left: 5px;
+        transition: transform 0.25s var(--ease);
+      }
+      details[open] summary:after {
+        transform: rotate(45deg);
+      }
+      summary:hover,
+      details[open] summary {
+        background: var(--soft);
+        border-color: var(--line);
+        color: var(--ink);
+      }
+      .settings {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-top: 10px;
+        padding: 20px;
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        box-shadow: var(--control-shadow);
+      }
+      .settings label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .settings select {
+        max-width: 220px;
+        background-color: var(--bg);
+        box-shadow: var(--control-shadow);
+      }
+      #testVoice {
+        background: var(--soft);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        min-height: 40px;
+        padding: 8px 16px;
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 500;
+      }
+      #testVoice:hover {
+        border-color: var(--accent);
+      }
+      #status {
+        font-size: 12px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        line-height: 1.6;
+      }
+      #status:empty {
+        display: none;
+      }
+      #status:not(:empty) {
+        background: var(--soft);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        width: fit-content;
+        max-width: 100%;
+        margin: 16px auto 0;
+        padding: 7px 14px;
+        text-align: left;
+      }
+
+      /* 08 · 指针反馈与断点：桌面 / 手机 / 小屏 / 横屏 */
+      @media (hover: hover) {
+        .chapter:hover {
+          transform: translateY(-3px);
+          border-color: var(--accent);
+          box-shadow: 0 10px 22px -16px #29452d50;
+        }
+        .chapter:hover:after {
+          transform: translate(3px, -3px);
+          color: var(--accent);
+        }
+        tbody tr:hover {
+          background: var(--soft);
+        }
+        .card:hover {
+          box-shadow: 0 16px 40px -26px #213b2948;
+        }
+        .card .actions button:hover {
+          border-color: var(--accent);
+        }
+      }
+      @media (min-width: 1100px) {
+        #workspace:has(#table:not(.hidden)) {
+          max-width: none;
+        }
+        .grid .chapter:last-child {
+          grid-column: 1/-1;
+        }
+      }
+      @media (max-width: 600px) {
+        :root {
+          --card-height: clamp(330px, 44svh, 390px);
+        }
+        header {
+          height: 76px;
+          padding: 0 20px;
+          gap: 10px;
+        }
+        .brand {
+          font-size: 23px;
+          letter-spacing: 3px;
+          flex-shrink: 0;
+        }
+        nav {
+          padding: 3px;
+          gap: 0;
+          border-radius: 12px;
+        }
+        nav button {
+          font-size: 12px;
+          padding: 6px 10px;
+          min-height: 34px;
+          border-radius: 8px;
+        }
+        #theme {
+          padding: 4px 10px;
+          min-width: 44px;
+          margin-left: 2px;
+          font-size: 11px;
+        }
+        main {
+          padding: 18px 20px 36px;
+        }
+        #home {
+          padding-top: 4px;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+          gap: 13px;
+        }
+        .chapter {
+          min-height: 126px;
+          padding: 25px 26px;
+        }
+        .chapter h2 {
+          font-size: 21px;
+        }
+        .chapter:before {
+          margin-bottom: 9px;
+          font-size: 10px;
+        }
+        .chapter:after {
+          top: 38px;
+          right: 24px;
+          width: 29px;
+          height: 29px;
+        }
+        .studyhead {
+          align-items: start;
+          flex-direction: column;
+          gap: 11px;
+          margin-bottom: 20px;
+        }
+        .studyhead h1 {
+          font-size: 26px;
+        }
+        #chapterSelect {
+          max-width: 100%;
+          padding: 8px 33px 8px 12px;
+          min-height: 37px;
+          border-radius: 8px;
+        }
+        .card {
+          padding: 49px 23px 18px;
+          border-radius: 16px;
+        }
+        .card .eyebrow {
+          top: 18px;
+          left: 22px;
+          width: calc(100% - 44px);
+          letter-spacing: 0.6px;
+        }
+        .word {
+          font-size: clamp(28px, 7.8vw, 36px);
+          letter-spacing: -0.7px;
+          margin: 9px 0 10px;
+        }
+        .phonetic {
+          font-size: 15px;
+        }
+        .card .actions button {
+          padding: 9px 20px;
+        }
+        .flipHint {
+          margin-top: 13px;
+        }
+        .card + .actions > button {
+          min-width: 112px;
+          padding: 9px 15px;
+          font-size: 12px;
+        }
+        .card.is-revealed .word {
+          font-size: 28px;
+          margin: 0 0 5px;
+        }
+        .card.is-revealed .phonetic {
+          font-size: 12px;
+        }
+        .answer {
+          margin-top: 13px;
+          padding: 13px 2px 2px;
+        }
+        .meaning {
+          font-size: 18px;
+        }
+        .example {
+          font-size: 17px;
+          margin-top: 11px;
+        }
+        .card .tablebtn {
+          margin-top: 9px;
+        }
+        .tablewrap {
+          overflow: visible;
+          border: 0;
+          background: transparent;
+          box-shadow: none;
+        }
+        table,
+        tbody {
+          display: block;
+        }
+        thead {
+          display: none;
+        }
+        tr {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 10px;
+          background: var(--paper);
+          border: 1px solid var(--line);
+          border-radius: 13px;
+          margin-bottom: 12px;
+          padding: 20px;
+          box-shadow: 0 5px 16px -15px #263e2a40;
+        }
+        td {
+          display: block;
+          border: 0;
+          padding: 0;
+          min-width: 0 !important;
+        }
+        td:first-child {
+          grid-column: 1;
+        }
+        td:nth-child(2) {
+          grid-column: 2;
+          font-size: 12px;
+          color: var(--muted);
+          text-align: right;
+          max-width: 120px;
+          overflow-wrap: anywhere;
+        }
+        td:nth-child(3),
+        td:nth-child(4) {
+          grid-column: 1/-1;
+        }
+        td:nth-child(3) {
+          font-size: 15px;
+          border-top: 1px solid var(--line);
+          padding-top: 12px;
+        }
+        td:nth-child(4) {
+          font:
+            15px/1.7 Georgia,
+            serif;
+        }
+        td .en {
+          font-size: 23px;
+        }
+        td .translation {
+          font-family: -apple-system, 'PingFang SC', sans-serif;
+          font-size: 12px;
+        }
+        .tablewrap .tablebtn {
+          margin-left: 0;
+        }
+        details {
+          margin-top: 16px;
+        }
+        summary {
+          padding-left: 10px;
+        }
+        .settings {
+          padding: 16px;
+          gap: 15px;
+          flex-direction: column;
+          align-items: start;
+          width: 100%;
+        }
+        .settings label {
+          width: 100%;
+          justify-content: space-between;
+        }
+        .settings select {
+          max-width: 65%;
+        }
+      }
+      @media (max-width: 360px) {
+        header {
+          padding: 0 14px;
+          gap: 8px;
+        }
+        .brand {
+          font-size: 21px;
+          letter-spacing: 2px;
+        }
+        nav button {
+          padding: 6px 8px;
+          font-size: 11px;
+        }
+        #theme {
+          padding-inline: 8px;
+          min-width: 40px;
+        }
+        main {
+          padding-inline: 14px;
+        }
+        .card + .actions > button {
+          min-width: 104px;
+        }
+      }
+      @media (max-height: 500px) and (orientation: landscape) {
+        :root {
+          --card-height: 280px;
+        }
+        header {
+          height: 60px;
+        }
+        main {
+          padding-top: 10px;
+        }
+        .studyhead {
+          flex-direction: row;
+          align-items: center;
+        }
+      }
+
+      /* 09 · 辅助功能与打印 */
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *:before,
+        *:after {
+          animation: none !important;
+          transition: none !important;
+          scroll-behavior: auto !important;
+        }
+        button:active,
+        .chapter:hover {
+          transform: none !important;
+        }
+      }
+      @media print {
+        header,
+        .actions,
+        details,
+        #status,
+        .tablebtn {
+          display: none;
+        }
+        main {
+          padding: 0;
+          max-width: none;
+        }
+        body {
+          background: white;
+          color: black;
+        }
+        .tablewrap {
+          overflow: visible;
+        }
+        td,
+        th {
+          padding: 8px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">词页</div>
+      <nav aria-label="主导航">
+        <button id="homeNav">章节</button>
+        <button id="studyNav">闪卡</button>
+        <button id="tableNav">单词表</button>
+        <button id="theme" aria-label="切换日间夜间模式">夜间</button>
+      </nav>
+    </header>
+    <main>
+      <section id="home" aria-label="章节目录"></section>
+      <section id="workspace" class="hidden" aria-label="学习页面">
+        <div class="studyhead">
+          <h1 id="sectionTitle"></h1>
+          <select id="chapterSelect" aria-label="选择章节"></select>
+        </div>
+        <div id="study"></div>
+        <div id="table" class="hidden"></div>
+      </section>
+      <div id="status" role="status" aria-live="polite"></div>
+      <details>
+        <summary>发音设置</summary>
+        <div class="settings">
+          <label
+            >发音来源
+            <select id="engine">
+              <option value="online">在线词典（有道）</option>
+              <option value="system">系统语音</option>
+            </select></label
+          >
+          <label
+            >口音
+            <select id="accent">
+              <option value="2">美式</option>
+              <option value="1">英式</option>
+            </select></label
+          >
+          <label
+            >语速
+            <select id="rate">
+              <option value="0.8">0.8×</option>
+              <option value="1" selected>1×</option>
+              <option value="1.2">1.2×</option>
+            </select></label
+          >
+          <label
+            >系统声音
+            <select id="voice">
+              <option value="">自动选择英文声音</option>
+            </select></label
+          >
+          <button id="testVoice">试听 hello</button>
+        </div>
+      </details>
+    </main>
+    <!-- 词库：新增章节沿用 id/title/subtitle/words；词条字段不要改名。 -->
+    <script id="data" type="application/json">
+      [
+        {
+          "id": "c0",
+          "title": "2023全国甲卷B篇",
+          "subtitle": "高考阅读 · 重点词块",
+          "words": [
+            {
+              "word": "skilled at",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "擅长（做某事）",
+              "example": "**Skilled at** putting up shelves and piecing together furniture, she never pays someone else to do a job she can do herself.",
+              "exampleZh": "她擅长装架子和组装家具，从不花钱请人做她自己能做的活儿。"
+            },
+            {
+              "word": "credit ... to",
+              "phonetic": "/ˈkredɪt/",
+              "pos": "v.",
+              "meaning": "把……归功于",
+              "example": "She **credits** these skills to her late grandfather and builder Derek Lloyd.",
+              "exampleZh": "她把这些技能归功于她已故的祖父、建筑工人德里克·劳埃德。"
+            },
+            {
+              "word": "late",
+              "phonetic": "/leɪt/",
+              "pos": "adj.",
+              "meaning": "已故的（熟词生义：晚的→已故的）",
+              "example": "She credits these skills to her **late** grandfather and builder Derek Lloyd.",
+              "exampleZh": "她把这些技能归功于她已故的祖父、建筑工人德里克·劳埃德。"
+            },
+            {
+              "word": "accompany",
+              "phonetic": "/əˈkʌmpəni/",
+              "pos": "v.",
+              "meaning": "陪伴；陪同",
+              "example": "Terri, now 26, **accompanied** Derek to work during her school holidays.",
+              "exampleZh": "现年 26 岁的特里在学校放假期间陪着德里克去干活。"
+            },
+            {
+              "word": "be rewarded with",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "获得……的回报",
+              "example": "A day's work **was rewarded with** £5 in pocket money.",
+              "exampleZh": "一天的工作换来 5 英镑的零花钱。"
+            },
+            {
+              "word": "heavily involved",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "深度参与",
+              "example": "I was **heavily involved**, painting the rooms and putting down the flooring through the house.",
+              "exampleZh": "我深度参与其中，粉刷房间、给整栋房子铺地板。"
+            },
+            {
+              "word": "be proud of",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "为……感到骄傲",
+              "example": "It took weeks and it was backbreaking work, but I know he **was proud of** my skills.",
+              "exampleZh": "这花了好几周，活儿很累人，但我知道他为我的手艺感到骄傲。"
+            },
+            {
+              "word": "rent",
+              "phonetic": "/rent/",
+              "pos": "v.",
+              "meaning": "租；租用",
+              "example": "Terri, who now **rents** a house with friends in Wandsworth, South West London, says DIY also saves her from losing any deposit.",
+              "exampleZh": "现与朋友合租伦敦西南部旺兹沃思一栋房子的特里说，DIY 还让她免于损失押金。"
+            },
+            {
+              "word": "deposit",
+              "phonetic": "/dɪˈpɒzɪt/",
+              "pos": "n.",
+              "meaning": "押金；定金",
+              "example": "...saves her from losing any **deposit** when a tenancy comes to an end.",
+              "exampleZh": "……让她在租期结束时免于损失任何押金。"
+            },
+            {
+              "word": "personalise",
+              "phonetic": "/ˈpɜːsənəlaɪz/",
+              "pos": "v.",
+              "meaning": "使个性化；使具个人特色",
+              "example": "I've moved house many times and I always like to **personalise** my room and put up pictures.",
+              "exampleZh": "我搬过很多次家，总喜欢把房间布置出自己的风格，挂上图片。"
+            },
+            {
+              "word": "put up",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "张贴；挂起",
+              "example": "I always like to personalise my room and **put up** pictures.",
+              "exampleZh": "我总喜欢把房间布置出自己的风格，挂上图片。"
+            },
+            {
+              "word": "so",
+              "phonetic": "/səʊ/",
+              "pos": "conj.",
+              "meaning": "因此；所以",
+              "example": "**So**, it's been useful to know how to cover up holes and repaint a room.",
+              "exampleZh": "因此，懂得如何填补洞眼、重新粉刷房间是很有用的。"
+            },
+            {
+              "word": "useful",
+              "phonetic": "/ˈjuːsfl/",
+              "pos": "adj.",
+              "meaning": "有用的",
+              "example": "So, it's been **useful** to know how to cover up holes and repaint a room.",
+              "exampleZh": "因此，懂得如何填补洞眼、重新粉刷房间是很有用的。"
+            },
+            {
+              "word": "cover up",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "掩盖；遮盖；填补",
+              "example": "It's been useful to know how to **cover up** holes and repaint a room.",
+              "exampleZh": "懂得如何填补洞眼、重新粉刷房间很有用。"
+            },
+            {
+              "word": "repaint",
+              "phonetic": "/ˌriːˈpeɪnt/",
+              "pos": "v.",
+              "meaning": "重新粉刷",
+              "example": "It's been useful to know how to cover up holes and **repaint** a room.",
+              "exampleZh": "懂得如何填补洞眼、重新粉刷房间很有用。"
+            },
+            {
+              "word": "avoid",
+              "phonetic": "/əˈvɔɪd/",
+              "pos": "v.",
+              "meaning": "避免",
+              "example": "...to **avoid** any charges when I've moved out.",
+              "exampleZh": "……以便搬走时避免任何费用。"
+            },
+            {
+              "word": "charge",
+              "phonetic": "/tʃɑːdʒ/",
+              "pos": "n.",
+              "meaning": "费用；收费",
+              "example": "...to avoid any **charges** when I've moved out.",
+              "exampleZh": "……以便搬走时避免任何费用。"
+            },
+            {
+              "word": "take on",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "承担；开始做",
+              "example": "With millions of people likely to **take on** DIY projects over the coming weeks...",
+              "exampleZh": "未来几周，数以百万计的人可能开始 DIY 项目……"
+            },
+            {
+              "word": "project",
+              "phonetic": "/ˈprɒdʒekt/",
+              "pos": "n.",
+              "meaning": "项目；工程",
+              "example": "With millions of people likely to take on DIY **projects** over the coming weeks...",
+              "exampleZh": "未来几周，数以百万计的人可能开始 DIY 项目……"
+            },
+            {
+              "word": "make the most of",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "充分利用",
+              "example": "...more than half of people are planning to **make the most of** the long, warm summer days to get jobs done.",
+              "exampleZh": "……超过一半的人计划充分利用漫长温暖的夏日把活儿干完。"
+            },
+            {
+              "word": "get jobs done",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "把活儿干完；完成工作",
+              "example": "...planning to make the most of the long, warm summer days to **get jobs done**.",
+              "exampleZh": "……计划充分利用漫长温暖的夏日把活儿干完。"
+            },
+            {
+              "word": "average",
+              "phonetic": "/ˈævərɪdʒ/",
+              "pos": "adj.",
+              "meaning": "平均的",
+              "example": "The **average** spend per project will be around £823.",
+              "exampleZh": "每个项目的平均花费约为 823 英镑。"
+            },
+            {
+              "word": "improve",
+              "phonetic": "/ɪmˈpruːv/",
+              "pos": "v.",
+              "meaning": "改善；提高",
+              "example": "Two thirds of people aim to **improve** their comfort while at home.",
+              "exampleZh": "三分之二的人想提高居家的舒适度。"
+            },
+            {
+              "word": "value",
+              "phonetic": "/ˈvæljuː/",
+              "pos": "n.",
+              "meaning": "价值",
+              "example": "A fifth wish to increase the **value** of their houses.",
+              "exampleZh": "五分之一的人想提升房屋的价值。"
+            },
+            {
+              "word": "traditionally",
+              "phonetic": "/trəˈdɪʃənəli/",
+              "pos": "adv.",
+              "meaning": "传统上",
+              "example": "Though DIY has **traditionally** been seen as a male hobby, the research shows it is women now leading the charge.",
+              "exampleZh": "尽管 DIY 传统上被视为男性的爱好，但研究表明如今女性正引领潮流。"
+            },
+            {
+              "word": "hobby",
+              "phonetic": "/ˈhɒbi/",
+              "pos": "n.",
+              "meaning": "爱好；业余爱好",
+              "example": "Though DIY has traditionally been seen as a male **hobby**...",
+              "exampleZh": "尽管 DIY 传统上被视为男性的爱好……"
+            }
+          ]
+        },
+        {
+          "id": "c1",
+          "title": "2024新课标I卷C篇",
+          "subtitle": "高考阅读 · 重点词块",
+          "words": [
+            {
+              "word": "comprehension",
+              "phonetic": "/ˌkɒmprɪˈhenʃn/",
+              "pos": "n.",
+              "meaning": "理解；理解力",
+              "example": "Is **comprehension** the same whether a person reads a text onscreen or on paper?",
+              "exampleZh": "无论一个人在屏幕上还是纸上读一篇文章，理解效果都一样吗？"
+            },
+            {
+              "word": "content",
+              "phonetic": "/ˈkɒntent/",
+              "pos": "n.",
+              "meaning": "内容",
+              "example": "And are listening to and viewing **content** as effective as reading the written word when covering the same material?",
+              "exampleZh": "在覆盖同样材料时，听内容和看内容与阅读书面文字一样有效吗？"
+            },
+            {
+              "word": "effective",
+              "phonetic": "/ɪˈfektɪv/",
+              "pos": "adj.",
+              "meaning": "有效的（as effective as 与……一样有效）",
+              "example": "And are listening to and viewing content as **effective** as reading the written word when covering the same material?",
+              "exampleZh": "在覆盖同样材料时，听内容和看内容与阅读书面文字一样有效吗？"
+            },
+            {
+              "word": "concentration",
+              "phonetic": "/ˌkɒnsnˈtreɪʃn/",
+              "pos": "n.",
+              "meaning": "集中；专注",
+              "example": "The reasons relate to a variety of factors, including reduced **concentration**, an entertainment mindset (心态) and a tendency to multitask while consuming digital content.",
+              "exampleZh": "原因与多种因素有关，包括注意力下降、娱乐心态以及消费数字内容时一心多用的倾向。"
+            },
+            {
+              "word": "consume",
+              "phonetic": "/kənˈsjuːm/",
+              "pos": "v.",
+              "meaning": "消费；消耗（此处指\"浏览/观看\"）",
+              "example": "...a tendency to multitask while **consuming** digital content.",
+              "exampleZh": "……浏览数字内容时一心多用的倾向。"
+            },
+            {
+              "word": "generally",
+              "phonetic": "/ˈdʒenrəli/",
+              "pos": "adv.",
+              "meaning": "通常；一般地",
+              "example": "When reading texts of several hundred words or more, learning is **generally** more successful when it's on paper than onscreen.",
+              "exampleZh": "阅读几百词以上的文本时，纸面阅读通常比屏幕阅读的学习效果更好。"
+            },
+            {
+              "word": "confirm",
+              "phonetic": "/kənˈfɜːm/",
+              "pos": "v.",
+              "meaning": "证实；确认",
+              "example": "A large amount of research **confirms** this finding.",
+              "exampleZh": "大量研究证实了这一发现。"
+            },
+            {
+              "word": "particularly",
+              "phonetic": "/pəˈtɪkjələli/",
+              "pos": "adv.",
+              "meaning": "尤其；特别",
+              "example": "The benefits of print reading **particularly** shine through when experimenters move from posing simple tasks to ones that require mental abstraction.",
+              "exampleZh": "当实验者从设置简单任务转向需要心理抽象的任务时，纸质阅读的优势尤其明显。"
+            },
+            {
+              "word": "identify",
+              "phonetic": "/aɪˈdentɪfaɪ/",
+              "pos": "v.",
+              "meaning": "识别；确认",
+              "example": "...posing simple tasks — like **identifying** the main idea in a reading passage — to ones that require mental abstraction.",
+              "exampleZh": "……设置简单任务——比如识别阅读段落的主旨——再到需要心理抽象的任务。"
+            },
+            {
+              "word": "inference",
+              "phonetic": "/ˈɪnfərəns/",
+              "pos": "n.",
+              "meaning": "推断（draw inferences from 从……做出推断）",
+              "example": "...to ones that require mental abstraction — such as drawing **inferences** from a text.",
+              "exampleZh": "……到需要心理抽象的任务——比如从文本中做出推断。"
+            },
+            {
+              "word": "along with",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "连同；与……一起",
+              "example": "With paper, there is a literal laying on of hands, **along with** the visual geography of distinct pages.",
+              "exampleZh": "纸质书有一种实在的\"手在书上\"的感觉，还有清晰分明的页面的视觉位置感。"
+            },
+            {
+              "word": "distinct",
+              "phonetic": "/dɪˈstɪŋkt/",
+              "pos": "adj.",
+              "meaning": "清晰的；明显不同的",
+              "example": "With paper, there is a literal laying on of hands, along with the visual geography of **distinct** pages.",
+              "exampleZh": "纸质书有一种实在的\"手在书上\"的感觉，还有清晰分明的页面的视觉位置感。"
+            },
+            {
+              "word": "memory",
+              "phonetic": "/ˈmeməri/",
+              "pos": "n.",
+              "meaning": "记忆；记忆力",
+              "example": "People often link their **memory** of what they've read to how far into the book it was or where it was on the page.",
+              "exampleZh": "人们常把对所读内容的记忆与读到书的哪个位置、内容在页面的哪个位置联系起来。"
+            },
+            {
+              "word": "propose",
+              "phonetic": "/prəˈpəʊz/",
+              "pos": "v.",
+              "meaning": "提出；提议",
+              "example": "Reading researchers have **proposed** a theory called \"shallowing hypothesis (假说).\"",
+              "exampleZh": "阅读研究者提出了一种叫\"浅层化假说\"的理论。"
+            },
+            {
+              "word": "approach",
+              "phonetic": "/əˈprəʊtʃ/",
+              "pos": "v.",
+              "meaning": "处理；对待（熟词生义：接近→以……方式对待）",
+              "example": "According to this theory, people **approach** digital texts with a mindset suited to social media.",
+              "exampleZh": "根据这一理论，人们以一种适合社交媒体的心态来对待数字文本。"
+            },
+            {
+              "word": "devote",
+              "phonetic": "/dɪˈvəʊt/",
+              "pos": "v.",
+              "meaning": "投入（时间/精力）；致力于",
+              "example": "...and **devote** less mental effort than when they are reading print.",
+              "exampleZh": "……比阅读纸质书时投入更少的心力。"
+            },
+            {
+              "word": "engaging",
+              "phonetic": "/ɪnˈɡeɪdʒɪŋ/",
+              "pos": "adj.",
+              "meaning": "有吸引力的；引人入胜的",
+              "example": "Audio (音频) and video can feel more **engaging** than text.",
+              "exampleZh": "音频和视频可能感觉比文本更有吸引力。"
+            },
+            {
+              "word": "turn to",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "转向；求助于；开始使用",
+              "example": "...and so university teachers increasingly **turn to** these technologies.",
+              "exampleZh": "因此，大学教师越来越多地转向使用这些技术。"
+            },
+            {
+              "word": "assign",
+              "phonetic": "/əˈsaɪn/",
+              "pos": "v.",
+              "meaning": "布置；分配",
+              "example": "...say, **assigning** an online video instead of an article by the same person.",
+              "exampleZh": "比如，布置观看一个在线视频，而不是同一作者的文章。"
+            },
+            {
+              "word": "instead of",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "而不是；代替",
+              "example": "...say, assigning an online video **instead of** an article by the same person.",
+              "exampleZh": "比如，布置观看一个在线视频，而不是同一作者的文章。"
+            },
+            {
+              "word": "demonstrate",
+              "phonetic": "/ˈdemənstreɪt/",
+              "pos": "v.",
+              "meaning": "证明；证实",
+              "example": "However, psychologists have **demonstrated** that when adults read news stories, they remember more of the content.",
+              "exampleZh": "然而，心理学家已经证明，成年人阅读新闻报道时，记住的内容更多。"
+            },
+            {
+              "word": "identical",
+              "phonetic": "/aɪˈdentɪkl/",
+              "pos": "adj.",
+              "meaning": "完全相同的",
+              "example": "...than if they listen to or view **identical** pieces.",
+              "exampleZh": "……比听或看完全相同的内容要多。"
+            },
+            {
+              "word": "resources",
+              "phonetic": "/rɪˈsɔːsɪz/",
+              "pos": "n.",
+              "meaning": "资源",
+              "example": "Digital texts, audio and video all have educational roles, especially when providing **resources** not available in print.",
+              "exampleZh": "数字文本、音频和视频都有教育作用，尤其是提供纸质媒介没有的资源时。"
+            },
+            {
+              "word": "maximize",
+              "phonetic": "/ˈmæksɪmaɪz/",
+              "pos": "v.",
+              "meaning": "使最大化",
+              "example": "However, for **maximizing** learning where mental focus and reflection are called for...",
+              "exampleZh": "然而，要在需要精神专注和反思的地方使学习效果最大化……"
+            },
+            {
+              "word": "reflection",
+              "phonetic": "/rɪˈflekʃn/",
+              "pos": "n.",
+              "meaning": "反思；深思",
+              "example": "...where mental focus and **reflection** are called for...",
+              "exampleZh": "……在需要精神专注和反思的地方……"
+            },
+            {
+              "word": "call for",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "需要；要求",
+              "example": "...where mental focus and reflection are **called for**...",
+              "exampleZh": "……在需要精神专注和反思的地方……"
+            },
+            {
+              "word": "contain",
+              "phonetic": "/kənˈteɪn/",
+              "pos": "v.",
+              "meaning": "包含；含有",
+              "example": "...educators shouldn't assume all media are the same, even when they **contain** identical words.",
+              "exampleZh": "……教育工作者不应该认为所有媒体都是一样的，即使它们包含相同的文字。"
+            }
+          ]
+        },
+        {
+          "id": "c2",
+          "title": "Welcome Unit",
+          "subtitle": "人教版 · 必修第一册",
+          "words": [
+            {
+              "word": "impress",
+              "phonetic": "/ɪmˈpres/",
+              "pos": "vt. & vi.",
+              "meaning": "使钦佩；给……留下深刻的好印象",
+              "example": "Her speech impressed everyone.",
+              "exampleZh": "她的演讲给所有人留下深刻印象。"
+            },
+            {
+              "word": "exchange",
+              "phonetic": "/ɪksˈtʃeɪndʒ/",
+              "pos": "n. & vt.",
+              "meaning": "交换；交流；交易；兑换",
+              "example": "We exchanged ideas.",
+              "exampleZh": "我们交换了想法。"
+            },
+            {
+              "word": "make an impression",
+              "phonetic": "/meɪk ən ɪmˈpreʃn/",
+              "pos": "phrase",
+              "meaning": "留下好印象",
+              "example": "Try to make a good impression.",
+              "exampleZh": "努力留下好印象。"
+            },
+            {
+              "word": "what if",
+              "phonetic": "/wɒt ɪf/",
+              "pos": "phrase",
+              "meaning": "要是……会怎么样呢？",
+              "example": "What if it rains?",
+              "exampleZh": "要是下雨呢？"
+            },
+            {
+              "word": "lecture",
+              "phonetic": "/ˈlektʃə(r)/",
+              "pos": "n. & vi. & vt.",
+              "meaning": "讲座；讲课；教训；训斥",
+              "example": "The lecture was fascinating.",
+              "exampleZh": "讲座非常精彩。"
+            },
+            {
+              "word": "guy",
+              "phonetic": "/ɡaɪ/",
+              "pos": "n.",
+              "meaning": "小伙子；男人；家伙",
+              "example": "That guy is my friend.",
+              "exampleZh": "那个家伙是我朋友。"
+            },
+            {
+              "word": "concentrate",
+              "phonetic": "/ˈkɒnsntreɪt/",
+              "pos": "vi. & vt.",
+              "meaning": "集中（注意力）；聚精会神",
+              "example": "Concentrate on your study.",
+              "exampleZh": "专注于你的学习。"
+            },
+            {
+              "word": "registration",
+              "phonetic": "/ˌredʒɪˈstreɪʃn/",
+              "pos": "n.",
+              "meaning": "登记；注册；挂号",
+              "example": "Registration starts next week.",
+              "exampleZh": "注册下周开始。"
+            },
+            {
+              "word": "experiment",
+              "phonetic": "/ɪkˈspɪrəmənt/",
+              "pos": "n.",
+              "meaning": "实验；试验",
+              "example": "We did a chemistry experiment.",
+              "exampleZh": "我们做了一个化学实验。"
+            },
+            {
+              "word": "leave ... alone",
+              "phonetic": "/liːv ə'ləʊn/",
+              "pos": "phrase",
+              "meaning": "不打扰；不惊动",
+              "example": "Please leave me alone.",
+              "exampleZh": "请让我一个人待会儿。"
+            },
+            {
+              "word": "register",
+              "phonetic": "/ˈredʒɪstə(r)/",
+              "pos": "vt. & vi.",
+              "meaning": "登记；注册",
+              "example": "Register your name here.",
+              "exampleZh": "在这里登记你的名字。"
+            },
+            {
+              "word": "sex",
+              "phonetic": "/seks/",
+              "pos": "n.",
+              "meaning": "性别",
+              "example": "Please fill in your sex.",
+              "exampleZh": "请填写你的性别。"
+            },
+            {
+              "word": "awkward",
+              "phonetic": "/əˈkwɔːd/",
+              "pos": "adj.",
+              "meaning": "令人尴尬的；难对付的",
+              "example": "It was an awkward moment.",
+              "exampleZh": "那是一个尴尬的时刻。"
+            },
+            {
+              "word": "junior",
+              "phonetic": "/ˈdʒuːniə(r)/",
+              "pos": "adj.",
+              "meaning": "地位（或职位、级别）低下的",
+              "example": "He is a junior clerk.",
+              "exampleZh": "他是一名低级职员。"
+            },
+            {
+              "word": "female",
+              "phonetic": "/ˈfiːmeɪl/",
+              "pos": "adj. & n.",
+              "meaning": "女（性）的；雌的；女子",
+              "example": "The female bird is smaller.",
+              "exampleZh": "雌鸟更小。"
+            },
+            {
+              "word": "male",
+              "phonetic": "/meɪl/",
+              "pos": "adj. & n.",
+              "meaning": "男（性）的；雄的；男子",
+              "example": "The male bird sings.",
+              "exampleZh": "雄鸟鸣叫。"
+            },
+            {
+              "word": "nationality",
+              "phonetic": "/ˌnæʃəˈneɪləti/",
+              "pos": "n.",
+              "meaning": "国籍；民族",
+              "example": "What's your nationality?",
+              "exampleZh": "你的国籍是什么？"
+            },
+            {
+              "word": "nation",
+              "phonetic": "/ˈneɪʃn/",
+              "pos": "n.",
+              "meaning": "国家；民族；国民",
+              "example": "The nation celebrated.",
+              "exampleZh": "全国庆祝。"
+            },
+            {
+              "word": "designer",
+              "phonetic": "/dɪˈzaɪnə(r)/",
+              "pos": "n.",
+              "meaning": "设计者",
+              "example": "She is a fashion designer.",
+              "exampleZh": "她是一位时装设计师。"
+            },
+            {
+              "word": "design",
+              "phonetic": "/dɪˈzaɪn/",
+              "pos": "n. & vt.",
+              "meaning": "设计；设计方案；设计；筹划",
+              "example": "They designed a new logo.",
+              "exampleZh": "他们设计了一个新标志。"
+            },
+            {
+              "word": "campus",
+              "phonetic": "/ˈkæmpəs/",
+              "pos": "n.",
+              "meaning": "校园；校区",
+              "example": "I live on campus.",
+              "exampleZh": "我住在校园里。"
+            },
+            {
+              "word": "formal",
+              "phonetic": "/fɔːml/",
+              "pos": "adj.",
+              "meaning": "正式的；正规的",
+              "example": "It's a formal event.",
+              "exampleZh": "这是一个正式活动。"
+            },
+            {
+              "word": "anxious",
+              "phonetic": "/ˈæŋkʃəs/",
+              "pos": "adj.",
+              "meaning": "焦虑的；不安的",
+              "example": "She felt anxious.",
+              "exampleZh": "她感到焦虑。"
+            },
+            {
+              "word": "annoyed",
+              "phonetic": "/əˈnɔɪd/",
+              "pos": "adj.",
+              "meaning": "恼怒的；生气的",
+              "example": "He was annoyed.",
+              "exampleZh": "他很生气。"
+            },
+            {
+              "word": "annoy",
+              "phonetic": "/əˈnɔɪ/",
+              "pos": "vt.",
+              "meaning": "使恼怒；打扰",
+              "example": "Don't annoy me.",
+              "exampleZh": "别惹我。"
+            },
+            {
+              "word": "frightened",
+              "phonetic": "/ˈfraɪtnd/",
+              "pos": "adj.",
+              "meaning": "惊吓的；害怕的",
+              "example": "The child was frightened.",
+              "exampleZh": "孩子吓坏了。"
+            },
+            {
+              "word": "p.m.",
+              "phonetic": "/piːˈem/",
+              "pos": "abbr.",
+              "meaning": "下午；午后",
+              "example": "The meeting is at 3 p.m.",
+              "exampleZh": "会议在下午3点。"
+            },
+            {
+              "word": "a.m.",
+              "phonetic": "/ɑːm/",
+              "pos": "abbr.",
+              "meaning": "上午；午前；午夜至正午",
+              "example": "I wake up at 7 a.m.",
+              "exampleZh": "我早上7点醒来。"
+            },
+            {
+              "word": "senior",
+              "phonetic": "/ˈsiːnjər/",
+              "pos": "adj. & n.",
+              "meaning": "级别（或地位）高的；较年长的人",
+              "example": "He is a senior manager.",
+              "exampleZh": "他是一名高级经理。"
+            },
+            {
+              "word": "at last",
+              "phonetic": "/æt lɑːst/",
+              "pos": "phrase",
+              "meaning": "终于；最终",
+              "example": "At last, we arrived.",
+              "exampleZh": "我们终于到了。"
+            },
+            {
+              "word": "outgoing",
+              "phonetic": "/ˈaʊtgəʊɪŋ/",
+              "pos": "adj.",
+              "meaning": "爱交际的；外向的",
+              "example": "She is outgoing.",
+              "exampleZh": "她很外向。"
+            },
+            {
+              "word": "impression",
+              "phonetic": "/ɪmˈpreʃn/",
+              "pos": "n.",
+              "meaning": "印象；感想",
+              "example": "First impressions matter.",
+              "exampleZh": "第一印象很重要。"
+            },
+            {
+              "word": "confident",
+              "phonetic": "/ˈkɒnfɪdənt/",
+              "pos": "adj.",
+              "meaning": "自信的；有把握的",
+              "example": "She is confident.",
+              "exampleZh": "她很自信。"
+            },
+            {
+              "word": "confidence",
+              "phonetic": "/ˈkɒnfɪdəns/",
+              "pos": "n.",
+              "meaning": "信心；信任",
+              "example": "I have confidence in you.",
+              "exampleZh": "我对你有信心。"
+            },
+            {
+              "word": "forward",
+              "phonetic": "/ˈfɔːwəd/",
+              "pos": "adv. & adj.",
+              "meaning": "向前；前进；向前的；前进的",
+              "example": "Move forward, please.",
+              "exampleZh": "请向前走。"
+            },
+            {
+              "word": "look forward to",
+              "phonetic": "/lʊk ˈfɔːwəd tə/",
+              "pos": "phrase",
+              "meaning": "盼望；期待",
+              "example": "I look forward to summer.",
+              "exampleZh": "我期待夏天。"
+            },
+            {
+              "word": "take notes",
+              "phonetic": "/teɪk nəʊts/",
+              "pos": "phrase",
+              "meaning": "记笔记",
+              "example": "Take notes in class.",
+              "exampleZh": "在课堂上记笔记。"
+            },
+            {
+              "word": "flash",
+              "phonetic": "/flæʃ/",
+              "pos": "n. & vi. & vt.",
+              "meaning": "光；信号；闪耀；发出信号",
+              "example": "The light flashed.",
+              "exampleZh": "灯光闪烁。"
+            },
+            {
+              "word": "flash card",
+              "phonetic": "/flæʃ kɑːd/",
+              "pos": "n.",
+              "meaning": "教学卡片；识字卡",
+              "example": "I use flash cards.",
+              "exampleZh": "我用闪卡。"
+            },
+            {
+              "word": "organise",
+              "phonetic": "/ˈɔːɡənaɪz/",
+              "pos": "vt. & vi.",
+              "meaning": "组织；筹备；安排；组建",
+              "example": "We need to organise a party.",
+              "exampleZh": "我们需要组织一个派对。"
+            },
+            {
+              "word": "organisation",
+              "phonetic": "/ˌɔːɡənəˈzeɪʃn/",
+              "pos": "n.",
+              "meaning": "组织；团体；机构",
+              "example": "She works for an organisation.",
+              "exampleZh": "她为一个组织工作。"
+            },
+            {
+              "word": "goal",
+              "phonetic": "/ɡəʊl/",
+              "pos": "n.",
+              "meaning": "目标；球门；射门",
+              "example": "My goal is to pass the exam.",
+              "exampleZh": "我的目标是通过考试。"
+            },
+            {
+              "word": "strategy",
+              "phonetic": "/ˈstrætədʒi/",
+              "pos": "n.",
+              "meaning": "策略；策划",
+              "example": "We need a new strategy.",
+              "exampleZh": "我们需要新策略。"
+            },
+            {
+              "word": "partner",
+              "phonetic": "/ˈpɑːtnə(r)/",
+              "pos": "n.",
+              "meaning": "同伴；配偶；合伙人",
+              "example": "He is my partner.",
+              "exampleZh": "他是我的搭档。"
+            },
+            {
+              "word": "improve",
+              "phonetic": "/ɪmˈpruːv/",
+              "pos": "vi. & vt.",
+              "meaning": "改进；改善",
+              "example": "My English improved.",
+              "exampleZh": "我的英语进步了。"
+            },
+            {
+              "word": "curious",
+              "phonetic": "/ˈkjʊəriəs/",
+              "pos": "adj.",
+              "meaning": "好奇的；求知欲强的",
+              "example": "Kids are curious.",
+              "exampleZh": "孩子很好奇。"
+            },
+            {
+              "word": "company",
+              "phonetic": "/ˈkʌmpəni/",
+              "pos": "n.",
+              "meaning": "公司；商行；陪伴",
+              "example": "He works at a company.",
+              "exampleZh": "他在一家公司工作。"
+            },
+            {
+              "word": "personality",
+              "phonetic": "/ˌpɜːsnəˈlætɪ/",
+              "pos": "n.",
+              "meaning": "性格；个性",
+              "example": "She has a warm personality.",
+              "exampleZh": "她性格热情。"
+            },
+            {
+              "word": "style",
+              "phonetic": "/staɪl/",
+              "pos": "n.",
+              "meaning": "方式；作风",
+              "example": "I like her style.",
+              "exampleZh": "我喜欢她的风格。"
+            },
+            {
+              "word": "revise",
+              "phonetic": "/rɪˈvaɪz/",
+              "pos": "vt. & vi.",
+              "meaning": "修改；修订；复习",
+              "example": "I need to revise my essay.",
+              "exampleZh": "我需要修改我的论文。"
+            }
+          ]
+        },
+        {
+          "id": "c3",
+          "title": "善于学习",
+          "subtitle": "主题词汇",
+          "words": [
+            {
+              "word": "attitude",
+              "phonetic": "/ˈætɪtjuːd/",
+              "pos": "n.",
+              "meaning": "态度",
+              "example": "A positive **attitude** helps us learn better.",
+              "exampleZh": "积极的态度帮助我们学得更好。"
+            },
+            {
+              "word": "system",
+              "phonetic": "/ˈsɪstəm/",
+              "pos": "n.",
+              "meaning": "系统",
+              "example": "The English spelling **system** is quite complex.",
+              "exampleZh": "英语拼写系统相当复杂。"
+            },
+            {
+              "word": "ups and downs",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "起起落落；兴衰",
+              "example": "Language learning has its **ups and downs**.",
+              "exampleZh": "语言学习有起有落。"
+            },
+            {
+              "word": "factor",
+              "phonetic": "/ˈfæktə(r)/",
+              "pos": "n.",
+              "meaning": "因素",
+              "example": "Motivation is a key **factor** in learning.",
+              "exampleZh": "动机是学习的关键因素。"
+            },
+            {
+              "word": "date back (to)",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "追溯到",
+              "example": "This word **dates back** to the 14th century.",
+              "exampleZh": "这个词可以追溯到 14 世纪。"
+            },
+            {
+              "word": "symbol",
+              "phonetic": "/ˈsɪmbl/",
+              "pos": "n.",
+              "meaning": "符号",
+              "example": "This **symbol** represents peace.",
+              "exampleZh": "这个符号代表和平。"
+            },
+            {
+              "word": "carve",
+              "phonetic": "/kɑːv/",
+              "pos": "v.",
+              "meaning": "雕刻",
+              "example": "People **carved** characters on stones.",
+              "exampleZh": "人们在石头上雕刻文字。"
+            },
+            {
+              "word": "dynasty",
+              "phonetic": "/ˈdɪnəsti/",
+              "pos": "n.",
+              "meaning": "朝代",
+              "example": "The Shang **Dynasty** used oracle bones.",
+              "exampleZh": "商朝使用甲骨文。"
+            },
+            {
+              "word": "dialect",
+              "phonetic": "/ˈdaɪəlekt/",
+              "pos": "n.",
+              "meaning": "方言",
+              "example": "He speaks a local **dialect** of Chinese.",
+              "exampleZh": "他说一种当地方言。"
+            },
+            {
+              "word": "regard",
+              "phonetic": "/rɪˈɡɑːd/",
+              "pos": "v.",
+              "meaning": "认为",
+              "example": "We **regard** Chinese as a beautiful language.",
+              "exampleZh": "我们认为中文是一门优美的语言。"
+            },
+            {
+              "word": "character",
+              "phonetic": "/ˈkærəktə(r)/",
+              "pos": "n.",
+              "meaning": "汉字；字符",
+              "example": "Chinese **characters** are like pictures.",
+              "exampleZh": "汉字就像图画一样。"
+            },
+            {
+              "word": "calligraphy",
+              "phonetic": "/kəˈlɪɡrəfi/",
+              "pos": "n.",
+              "meaning": "书法",
+              "example": "**Calligraphy** is a traditional Chinese art.",
+              "exampleZh": "书法是中国传统艺术。"
+            },
+            {
+              "word": "global",
+              "phonetic": "/ˈɡləʊbl/",
+              "pos": "adj.",
+              "meaning": "全球的",
+              "example": "English is a **global** language.",
+              "exampleZh": "英语是一门全球性语言。"
+            },
+            {
+              "word": "affair",
+              "phonetic": "/əˈfeə(r)/",
+              "pos": "n.",
+              "meaning": "事务；事情",
+              "example": "Learning languages is a personal **affair**.",
+              "exampleZh": "学习语言是个人的事情。"
+            },
+            {
+              "word": "tongue",
+              "phonetic": "/tʌŋ/",
+              "pos": "n.",
+              "meaning": "语言；舌头",
+              "example": "My mother **tongue** is Chinese.",
+              "exampleZh": "我的母语是中文。"
+            },
+            {
+              "word": "equal",
+              "phonetic": "/ˈiːkwəl/",
+              "pos": "adj./v.",
+              "meaning": "平等的",
+              "example": "All languages are **equal** in value.",
+              "exampleZh": "所有语言价值平等。"
+            },
+            {
+              "word": "gap",
+              "phonetic": "/ɡæp/",
+              "pos": "n.",
+              "meaning": "差距；鸿沟",
+              "example": "There is a cultural **gap** between generations.",
+              "exampleZh": "代际之间存在文化差距。"
+            },
+            {
+              "word": "bridge the gap",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "弥合差距",
+              "example": "Learning English helps **bridge the gap** between cultures.",
+              "exampleZh": "学英语有助于弥合文化差距。"
+            },
+            {
+              "word": "brush",
+              "phonetic": "/brʌʃ/",
+              "pos": "n.",
+              "meaning": "毛笔；刷子",
+              "example": "A writing **brush** is used in calligraphy.",
+              "exampleZh": "毛笔用于书法创作。"
+            },
+            {
+              "word": "native",
+              "phonetic": "/ˈneɪtɪv/",
+              "pos": "adj./n.",
+              "meaning": "母语的；本地人",
+              "example": "I want to speak like a **native** speaker.",
+              "exampleZh": "我想说得像母语者一样。"
+            },
+            {
+              "word": "reference",
+              "phonetic": "/ˈrefrəns/",
+              "pos": "n.",
+              "meaning": "参考",
+              "example": "Keep a dictionary for **reference**.",
+              "exampleZh": "备一本词典供参考。"
+            },
+            {
+              "word": "refer",
+              "phonetic": "/rɪˈfɜː(r)/",
+              "pos": "v.",
+              "meaning": "查阅；提到",
+              "example": "You can **refer** to the notes anytime.",
+              "exampleZh": "你可以随时查阅笔记。"
+            },
+            {
+              "word": "refer to",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "指的是；提到",
+              "example": "What does this word **refer to**?",
+              "exampleZh": "这个词指的是什么？"
+            },
+            {
+              "word": "despite",
+              "phonetic": "/dɪˈspaɪt/",
+              "pos": "prep.",
+              "meaning": "尽管",
+              "example": "**Despite** difficulties, I keep learning.",
+              "exampleZh": "尽管困难重重，我坚持学习。"
+            },
+            {
+              "word": "based",
+              "phonetic": "/beɪst/",
+              "pos": "adj.",
+              "meaning": "基于",
+              "example": "Our lessons are **based** on real life.",
+              "exampleZh": "我们的课程基于现实生活。"
+            },
+            {
+              "word": "base",
+              "phonetic": "/beɪs/",
+              "pos": "v./n.",
+              "meaning": "基于；基础",
+              "example": "We should **base** our opinions on facts.",
+              "exampleZh": "我们应该基于事实发表观点。"
+            },
+            {
+              "word": "variety",
+              "phonetic": "/vəˈraɪəti/",
+              "pos": "n.",
+              "meaning": "多样化；种类",
+              "example": "A **variety** of methods can help us learn.",
+              "exampleZh": "各种各样的方法可以帮助我们学习。"
+            },
+            {
+              "word": "major",
+              "phonetic": "/ˈmeɪdʒə(r)/",
+              "pos": "adj./v./n.",
+              "meaning": "主要的",
+              "example": "My **major** interest is English literature.",
+              "exampleZh": "我的主要兴趣是英国文学。"
+            },
+            {
+              "word": "no matter",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "无论",
+              "example": "**No matter** what happens, keep learning.",
+              "exampleZh": "无论发生什么，坚持学习。"
+            },
+            {
+              "word": "means",
+              "phonetic": "/miːnz/",
+              "pos": "n.",
+              "meaning": "方式；手段",
+              "example": "Reading is an effective **means** of learning.",
+              "exampleZh": "阅读是一种有效的学习方式。"
+            },
+            {
+              "word": "classic",
+              "phonetic": "/ˈklæsɪk/",
+              "pos": "adj./n.",
+              "meaning": "经典的",
+              "example": "We read **classic** novels in class.",
+              "exampleZh": "我们在课堂上阅读经典小说。"
+            },
+            {
+              "word": "appreciate",
+              "phonetic": "/əˈpriːʃieɪt/",
+              "pos": "v.",
+              "meaning": "欣赏",
+              "example": "I **appreciate** the beauty of this poem.",
+              "exampleZh": "我欣赏这首诗的美。"
+            },
+            {
+              "word": "specific",
+              "phonetic": "/spəˈsɪfɪk/",
+              "pos": "adj.",
+              "meaning": "具体的",
+              "example": "The teacher gave **specific** instructions.",
+              "exampleZh": "老师给出了具体的指导。"
+            },
+            {
+              "word": "struggle",
+              "phonetic": "/ˈstrʌɡl/",
+              "pos": "v./n.",
+              "meaning": "挣扎；吃力",
+              "example": "I **struggle** with English pronunciation.",
+              "exampleZh": "我在英语发音方面很吃力。"
+            },
+            {
+              "word": "point of view",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "观点",
+              "example": "From my **point of view**, practice is essential.",
+              "exampleZh": "在我看来，练习至关重要。"
+            },
+            {
+              "word": "semester",
+              "phonetic": "/sɪˈmestə(r)/",
+              "pos": "n.",
+              "meaning": "学期",
+              "example": "We have six subjects this **semester**.",
+              "exampleZh": "这学期我们有六门科目。"
+            },
+            {
+              "word": "demand",
+              "phonetic": "/dɪˈmɑːnd/",
+              "pos": "v./n.",
+              "meaning": "需要；要求",
+              "example": "English learning **demands** a lot of effort.",
+              "exampleZh": "英语学习需要很多努力。"
+            },
+            {
+              "word": "description",
+              "phonetic": "/dɪˈskrɪpʃn/",
+              "pos": "n.",
+              "meaning": "描述",
+              "example": "The **description** of the scene is vivid.",
+              "exampleZh": "场景的描述很生动。"
+            },
+            {
+              "word": "relate",
+              "phonetic": "/rɪˈleɪt/",
+              "pos": "v.",
+              "meaning": "联系；理解",
+              "example": "I can **relate** to the character's feelings.",
+              "exampleZh": "我能理解角色的感受。"
+            },
+            {
+              "word": "relate to",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "与…相关",
+              "example": "This story **relates to** our daily life.",
+              "exampleZh": "这个故事与我们的日常生活相关。"
+            },
+            {
+              "word": "take on",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "承担；接受",
+              "example": "He **takes on** new challenges bravely.",
+              "exampleZh": "他勇敢地接受新挑战。"
+            },
+            {
+              "word": "summary",
+              "phonetic": "/ˈsʌməri/",
+              "pos": "n.",
+              "meaning": "摘要",
+              "example": "Write a **summary** of this passage.",
+              "exampleZh": "写一段这篇文章的摘要。"
+            },
+            {
+              "word": "identify",
+              "phonetic": "/aɪˈdentɪfaɪ/",
+              "pos": "v.",
+              "meaning": "识别；辨认",
+              "example": "Can you **identify** the main idea?",
+              "exampleZh": "你能识别出主旨大意吗？"
+            },
+            {
+              "word": "inference",
+              "phonetic": "/ˈɪnfərəns/",
+              "pos": "n.",
+              "meaning": "推断",
+              "example": "We can make an **inference** from the text.",
+              "exampleZh": "我们可以从文中做出推断。"
+            },
+            {
+              "word": "memory",
+              "phonetic": "/ˈmeməri/",
+              "pos": "n.",
+              "meaning": "记忆力；记忆",
+              "example": "A good **memory** helps with vocabulary.",
+              "exampleZh": "好的记忆力有助于词汇学习。"
+            },
+            {
+              "word": "propose",
+              "phonetic": "/prəˈpəʊz/",
+              "pos": "v.",
+              "meaning": "建议；提议",
+              "example": "I **propose** that we practice more.",
+              "exampleZh": "我建议我们多加练习。"
+            },
+            {
+              "word": "turn to",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "求助；转向",
+              "example": "You can **turn to** your teacher for help.",
+              "exampleZh": "你可以向老师求助。"
+            },
+            {
+              "word": "assign",
+              "phonetic": "/əˈsaɪn/",
+              "pos": "v.",
+              "meaning": "布置；分配",
+              "example": "The teacher will **assign** homework daily.",
+              "exampleZh": "老师会每天布置作业。"
+            },
+            {
+              "word": "demonstrate",
+              "phonetic": "/ˈdemənstreɪt/",
+              "pos": "v.",
+              "meaning": "演示；展示",
+              "example": "She **demonstrated** how to pronounce the word.",
+              "exampleZh": "她演示了如何发这个音。"
+            },
+            {
+              "word": "reflection",
+              "phonetic": "/rɪˈflekʃn/",
+              "pos": "n.",
+              "meaning": "反思",
+              "example": "Writing a **reflection** helps us learn.",
+              "exampleZh": "写反思有助于我们的学习。"
+            },
+            {
+              "word": "drop by",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "顺便拜访",
+              "example": "I will **drop by** the teacher's office later.",
+              "exampleZh": "我待会儿会顺便去趟老师办公室。"
+            },
+            {
+              "word": "instruct",
+              "phonetic": "/ɪnˈstrʌkt/",
+              "pos": "v.",
+              "meaning": "指导",
+              "example": "The teacher **instructs** us in English writing.",
+              "exampleZh": "老师指导我们英语写作。"
+            },
+            {
+              "word": "stress",
+              "phonetic": "/stres/",
+              "pos": "v./n.",
+              "meaning": "强调",
+              "example": "The teacher **stressed** the importance of reading.",
+              "exampleZh": "老师强调了阅读的重要性。"
+            }
+          ]
+        },
+        {
+          "id": "c4",
+          "title": "急救主题",
+          "subtitle": "主题词汇",
+          "words": [
+            {
+              "word": "electric",
+              "phonetic": "/ɪˈlektrɪk/",
+              "pos": "adj.",
+              "meaning": "电的；带电的",
+              "example": "Don't touch the **electric** wire with wet hands.",
+              "exampleZh": "不要用湿手触摸电线。"
+            },
+            {
+              "word": "electric shock",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "触电；电击",
+              "example": "He got an **electric shock** from the broken machine.",
+              "exampleZh": "他被那台坏机器电了一下。"
+            },
+            {
+              "word": "swallow",
+              "phonetic": "/ˈswɒləʊ/",
+              "pos": "v.",
+              "meaning": "吞下；咽下",
+              "example": "Don't **swallow** the small button by accident.",
+              "exampleZh": "别不小心吞下那个小纽扣。"
+            },
+            {
+              "word": "bath",
+              "phonetic": "/bɑːθ/",
+              "pos": "n.",
+              "meaning": "洗澡；浴缸",
+              "example": "Hot **bath** water can scald your skin.",
+              "exampleZh": "热水浴的水会烫伤你的皮肤。"
+            },
+            {
+              "word": "slip",
+              "phonetic": "/slɪp/",
+              "pos": "v.",
+              "meaning": "滑倒；滑",
+              "example": "I might **slip** on the wet floor.",
+              "exampleZh": "我可能会在湿地板上滑倒。"
+            },
+            {
+              "word": "drown",
+              "phonetic": "/draʊn/",
+              "pos": "v.",
+              "meaning": "溺水；淹死",
+              "example": "Children can **drown** in a swimming pool.",
+              "exampleZh": "儿童可能会在游泳池溺水。"
+            },
+            {
+              "word": "sprain",
+              "phonetic": "/spreɪn/",
+              "pos": "v./n.",
+              "meaning": "扭伤",
+              "example": "You may **sprain** your ankle when running.",
+              "exampleZh": "跑步时你可能会扭伤脚踝。"
+            },
+            {
+              "word": "choke",
+              "phonetic": "/tʃəʊk/",
+              "pos": "v.",
+              "meaning": "噎住；窒息",
+              "example": "Don't eat too fast, or you'll **choke**.",
+              "exampleZh": "别吃太快，否则你会噎住。"
+            },
+            {
+              "word": "collapse",
+              "phonetic": "/kəˈlæps/",
+              "pos": "v.",
+              "meaning": "晕倒；倒下",
+              "example": "He may **collapse** from heat stroke.",
+              "exampleZh": "他可能会因中暑而倒下。"
+            },
+            {
+              "word": "sharp",
+              "phonetic": "/ʃɑːp/",
+              "pos": "adj.",
+              "meaning": "锋利的",
+              "example": "The **sharp** knife can cut your finger.",
+              "exampleZh": "那把锋利的刀会割伤你的手指。"
+            },
+            {
+              "word": "faint",
+              "phonetic": "/feɪnt/",
+              "pos": "v.",
+              "meaning": "昏倒；晕厥",
+              "example": "She might **faint** if she doesn't eat.",
+              "exampleZh": "如果不吃东西她可能会昏倒。"
+            },
+            {
+              "word": "attack",
+              "phonetic": "/əˈtæk/",
+              "pos": "n.",
+              "meaning": "发作；侵袭",
+              "example": "He had a sudden heart **attack**.",
+              "exampleZh": "他心脏病突然发作了。"
+            },
+            {
+              "word": "minor",
+              "phonetic": "/ˈmaɪnə(r)/",
+              "pos": "adj.",
+              "meaning": "轻微的；次要的",
+              "example": "Luckily, it was only a **minor** injury.",
+              "exampleZh": "幸运的是，只是轻伤。"
+            },
+            {
+              "word": "layer",
+              "phonetic": "/ˈleɪə(r)/",
+              "pos": "n.",
+              "meaning": "层",
+              "example": "The skin has multiple protective **layers**.",
+              "exampleZh": "皮肤有多层保护层。"
+            },
+            {
+              "word": "underneath",
+              "phonetic": "/ˌʌndəˈniːθ/",
+              "pos": "prep./adv.",
+              "meaning": "在…下面",
+              "example": "The cut goes **underneath** the bandage.",
+              "exampleZh": "伤口在绷带下面。"
+            },
+            {
+              "word": "loose",
+              "phonetic": "/luːs/",
+              "pos": "adj.",
+              "meaning": "松的",
+              "example": "Make sure the bandage is not too **loose**.",
+              "exampleZh": "确保绷带不要太松。"
+            },
+            {
+              "word": "ease",
+              "phonetic": "/iːz/",
+              "pos": "v./n.",
+              "meaning": "缓解；减轻",
+              "example": "This medicine can **ease** the pain.",
+              "exampleZh": "这药能缓解疼痛。"
+            },
+            {
+              "word": "wrap",
+              "phonetic": "/ræp/",
+              "pos": "v.",
+              "meaning": "包裹；包扎",
+              "example": "You should **wrap** the wound with a clean cloth.",
+              "exampleZh": "你应该用干净的布包扎伤口。"
+            },
+            {
+              "word": "operator",
+              "phonetic": "/ˈɒpəreɪtə(r)/",
+              "pos": "n.",
+              "meaning": "接线员",
+              "example": "The **operator** answered the emergency call.",
+              "exampleZh": "接线员接了紧急电话。"
+            },
+            {
+              "word": "ambulance",
+              "phonetic": "/ˈæmbjələns/",
+              "pos": "n.",
+              "meaning": "救护车",
+              "example": "Call an **ambulance** immediately.",
+              "exampleZh": "立即叫一辆救护车。"
+            },
+            {
+              "word": "ward",
+              "phonetic": "/wɔːd/",
+              "pos": "n.",
+              "meaning": "病房",
+              "example": "He is resting in the hospital **ward**.",
+              "exampleZh": "他在医院病房休息。"
+            },
+            {
+              "word": "ankle",
+              "phonetic": "/ˈæŋkl/",
+              "pos": "n.",
+              "meaning": "脚踝",
+              "example": "She twisted her **ankle** during PE class.",
+              "exampleZh": "她在体育课上扭伤了脚踝。"
+            },
+            {
+              "word": "bleeding",
+              "phonetic": "/ˈbliːdɪŋ/",
+              "pos": "n.",
+              "meaning": "出血",
+              "example": "Press the wound to stop the **bleeding**.",
+              "exampleZh": "按压伤口止血。"
+            },
+            {
+              "word": "bleed",
+              "phonetic": "/bliːd/",
+              "pos": "v.",
+              "meaning": "流血",
+              "example": "His finger began to **bleed** badly.",
+              "exampleZh": "他的手指开始大量流血。"
+            },
+            {
+              "word": "throat",
+              "phonetic": "/θrəʊt/",
+              "pos": "n.",
+              "meaning": "喉咙",
+              "example": "He has a sore **throat** and a cough.",
+              "exampleZh": "他喉咙痛并且咳嗽。"
+            },
+            {
+              "word": "slap",
+              "phonetic": "/slæp/",
+              "pos": "v.",
+              "meaning": "拍；拍打",
+              "example": "Gently **slap** his back to help him cough.",
+              "exampleZh": "轻轻拍他的背帮助他咳嗽。"
+            },
+            {
+              "word": "help sb. to one's feet",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "扶某人站起来",
+              "example": "Please **help him to his feet** carefully.",
+              "exampleZh": "请小心地扶他站起来。"
+            },
+            {
+              "word": "practical",
+              "phonetic": "/ˈpræktɪkl/",
+              "pos": "adj.",
+              "meaning": "实用的",
+              "example": "First aid is a **practical** skill to learn.",
+              "exampleZh": "急救是一项实用的技能。"
+            },
+            {
+              "word": "fist",
+              "phonetic": "/fɪst/",
+              "pos": "n.",
+              "meaning": "拳头",
+              "example": "Make a **fist** and press on the stomach.",
+              "exampleZh": "握紧拳头按压胃部。"
+            },
+            {
+              "word": "grab",
+              "phonetic": "/ɡræb/",
+              "pos": "v.",
+              "meaning": "抓住",
+              "example": "**Grab** his hand to support him.",
+              "exampleZh": "抓住他的手扶住他。"
+            },
+            {
+              "word": "tightly",
+              "phonetic": "/ˈtaɪtli/",
+              "pos": "adv.",
+              "meaning": "紧紧地",
+              "example": "Hold the bandage **tightly** around the wound.",
+              "exampleZh": "把绷带紧紧地缠在伤口上。"
+            },
+            {
+              "word": "tight",
+              "phonetic": "/taɪt/",
+              "pos": "adj.",
+              "meaning": "紧的",
+              "example": "Keep the bandage **tight** but not too firm.",
+              "exampleZh": "保持绷带紧但不压得太紧。"
+            },
+            {
+              "word": "face up/down",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "面朝上/面朝下",
+              "example": "Lay the patient **face up** on the ground.",
+              "exampleZh": "让病人仰卧在地上。"
+            },
+            {
+              "word": "victim",
+              "phonetic": "/ˈvɪktɪm/",
+              "pos": "n.",
+              "meaning": "受害者；伤员",
+              "example": "The **victim** was taken to the hospital.",
+              "exampleZh": "受害者被送往医院。"
+            },
+            {
+              "word": "swollen",
+              "phonetic": "/ˈswəʊlən/",
+              "pos": "adj.",
+              "meaning": "肿胀的",
+              "example": "His ankle is **swollen** and painful.",
+              "exampleZh": "他的脚踝肿胀且疼痛。"
+            },
+            {
+              "word": "swell",
+              "phonetic": "/swel/",
+              "pos": "v.",
+              "meaning": "肿胀",
+              "example": "The injured finger began to **swell**.",
+              "exampleZh": "受伤的手指开始肿胀。"
+            },
+            {
+              "word": "nerve",
+              "phonetic": "/nɜːv/",
+              "pos": "n.",
+              "meaning": "神经",
+              "example": "The cut may damage a **nerve**.",
+              "exampleZh": "这个伤口可能会损伤神经。"
+            },
+            {
+              "word": "urgent",
+              "phonetic": "/ˈɜːdʒənt/",
+              "pos": "adj.",
+              "meaning": "紧急的",
+              "example": "This is an **urgent** medical situation.",
+              "exampleZh": "这是紧急的医疗情况。"
+            },
+            {
+              "word": "elderly",
+              "phonetic": "/ˈeldəli/",
+              "pos": "adj./n.",
+              "meaning": "年长的；老年人",
+              "example": "The **elderly** need more protection.",
+              "exampleZh": "老年人需要更多保护。"
+            },
+            {
+              "word": "delay",
+              "phonetic": "/dɪˈleɪ/",
+              "pos": "v./n.",
+              "meaning": "拖延；耽搁",
+              "example": "Don't **delay** calling for an ambulance.",
+              "exampleZh": "不要拖延叫救护车。"
+            },
+            {
+              "word": "panic",
+              "phonetic": "/ˈpænɪk/",
+              "pos": "v./n.",
+              "meaning": "惊慌",
+              "example": "Don't **panic**; call for help first.",
+              "exampleZh": "不要惊慌，先寻求帮助。"
+            },
+            {
+              "word": "interrupt",
+              "phonetic": "/ˌɪntəˈrʌpt/",
+              "pos": "v.",
+              "meaning": "打断",
+              "example": "Don't **interrupt** the rescuer while working.",
+              "exampleZh": "施救者工作时不要打断他。"
+            },
+            {
+              "word": "scream",
+              "phonetic": "/skriːm/",
+              "pos": "v./n.",
+              "meaning": "尖叫；呼救",
+              "example": "She heard a loud **scream** for help.",
+              "exampleZh": "她听到了一声响亮的呼救声。"
+            },
+            {
+              "word": "fellow",
+              "phonetic": "/ˈfeləʊ/",
+              "pos": "adj./n.",
+              "meaning": "同伴；同…的",
+              "example": "He is a **fellow** student in my class.",
+              "exampleZh": "他是我同班的一个同学。"
+            },
+            {
+              "word": "desperate",
+              "phonetic": "/ˈdespərət/",
+              "pos": "adj.",
+              "meaning": "危急的；绝望的",
+              "example": "The situation was **desperate** but we acted.",
+              "exampleZh": "情况很危急，但我们行动了。"
+            },
+            {
+              "word": "justify",
+              "phonetic": "/ˈdʒʌstɪfaɪ/",
+              "pos": "v.",
+              "meaning": "证明…有理；为…辩护",
+              "example": "We can't **justify** ignoring safety rules.",
+              "exampleZh": "我们不能为忽视安全规则开脱。"
+            },
+            {
+              "word": "welfare",
+              "phonetic": "/ˈwelfeə(r)/",
+              "pos": "n.",
+              "meaning": "福祉；幸福",
+              "example": "Safety is for the **welfare** of everyone.",
+              "exampleZh": "安全是为了每个人的福祉。"
+            },
+            {
+              "word": "sleep in",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "睡过头",
+              "example": "Don't **sleep in** and miss the safety lesson.",
+              "exampleZh": "别睡过头错过了安全课。"
+            },
+            {
+              "word": "out of shape",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "身体不佳；变形的",
+              "example": "I'm **out of shape** and need more exercise.",
+              "exampleZh": "我身体不好，需要多锻炼。"
+            },
+            {
+              "word": "membership",
+              "phonetic": "/ˈmembəʃɪp/",
+              "pos": "n.",
+              "meaning": "会员资格",
+              "example": "I applied for a **membership** at the gym.",
+              "exampleZh": "我申请了健身房的会员资格。"
+            },
+            {
+              "word": "be divided into",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "被分成",
+              "example": "First-aid steps are **divided into** three parts.",
+              "exampleZh": "急救步骤被分成三部分。"
+            },
+            {
+              "word": "suffer from",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "遭受；患（病）",
+              "example": "He **suffers from** a severe headache.",
+              "exampleZh": "他患有严重的头痛。"
+            },
+            {
+              "word": "stand by",
+              "phonetic": "",
+              "pos": "短语",
+              "meaning": "待命；支持",
+              "example": "The nurse is **standing by** for emergencies.",
+              "exampleZh": "护士正在待命处理紧急情况。"
+            },
+            {
+              "word": "calmly",
+              "phonetic": "/ˈkɑːmli/",
+              "pos": "adv.",
+              "meaning": "冷静地",
+              "example": "She **calmly** called the ambulance.",
+              "exampleZh": "她冷静地叫了救护车。"
+            },
+            {
+              "word": "immediately",
+              "phonetic": "/ɪˈmiːdiətli/",
+              "pos": "adv.",
+              "meaning": "立即",
+              "example": "You should act **immediately** in an emergency.",
+              "exampleZh": "紧急情况下你应该立即行动。"
+            },
+            {
+              "word": "rescuer",
+              "phonetic": "/ˈreskjuːə(r)/",
+              "pos": "n.",
+              "meaning": "救助者",
+              "example": "The **rescuer** saved the boy from drowning.",
+              "exampleZh": "救助者救起了溺水的男孩。"
+            },
+            {
+              "word": "involve",
+              "phonetic": "/ɪnˈvɒlv/",
+              "pos": "v.",
+              "meaning": "包含；涉及",
+              "example": "First aid often **involves** giving CPR.",
+              "exampleZh": "急救通常包括进行心肺复苏。"
+            },
+            {
+              "word": "handle",
+              "phonetic": "/ˈhændl/",
+              "pos": "v.",
+              "meaning": "处理",
+              "example": "We must **handle** the emergency well.",
+              "exampleZh": "我们必须妥善处理紧急情况。"
+            },
+            {
+              "word": "avoid",
+              "phonetic": "/əˈvɔɪd/",
+              "pos": "v.",
+              "meaning": "避免",
+              "example": "**Avoid** touching the wound with dirty hands.",
+              "exampleZh": "避免用脏手触摸伤口。"
+            },
+            {
+              "word": "slim",
+              "phonetic": "/slɪm/",
+              "pos": "v.",
+              "meaning": "减肥；变瘦",
+              "example": "She is trying to **slim** down through exercise.",
+              "exampleZh": "她正试着通过锻炼来减肥。"
+            },
+            {
+              "word": "surgery",
+              "phonetic": "/ˈsɜːdʒəri/",
+              "pos": "n.",
+              "meaning": "手术",
+              "example": "The patient needs immediate **surgery**.",
+              "exampleZh": "病人需要立即进行手术。"
+            },
+            {
+              "word": "charge",
+              "phonetic": "/tʃɑːdʒ/",
+              "pos": "n.",
+              "meaning": "费用",
+              "example": "There's no **charge** for calling this number.",
+              "exampleZh": "打这个号码不收费。"
+            },
+            {
+              "word": "emergency",
+              "phonetic": "/iˈmɜːdʒənsi/",
+              "pos": "n.",
+              "meaning": "紧急情况",
+              "example": "This is a serious **emergency** situation.",
+              "exampleZh": "这是一个严重的紧急情况。"
+            },
+            {
+              "word": "fortunate",
+              "phonetic": "/ˈfɔːtʃənət/",
+              "pos": "adj.",
+              "meaning": "幸运的",
+              "example": "We are **fortunate** that nobody got hurt.",
+              "exampleZh": "我们很幸运，没有人受伤。"
+            }
+          ]
+        }
+      ]
+    </script>
+    <script>
+      'use strict';
+
+      /**
+       * 词页 · 单文件应用
+       *
+       * 维护入口：
+       * 1. 样式：上方 <style>，按组件分区；颜色与尺寸优先修改 CSS 变量。
+       * 2. 词库：<script id="data" type="application/json">，沿用原始六个词条字段。
+       * 3. 行为：配置 → 存储 → 渲染 → 动效/手势 → 发音 → 初始化。
+       *
+       * 无运行时依赖、无构建步骤。所有动态文字先转义后写入 HTML。
+       * CONFIG.storageKey 保持不变，以兼容旧版的章节、词卡与发音设置。
+       */
+      const CONFIG = Object.freeze({
+        storageKey: 'wordbook-v1',
+        pages: ['home', 'study', 'table'],
+        dictionaryEndpoint: 'https://dict.youdao.com/dictvoice',
+        audioLoadTimeout: 8000,
+        systemStartTimeout: 7000,
+        minimumAudioDuration: 0.25,
+        swipe: {
+          minDistance: 38,
+          maxDistance: 65,
+          widthRatio: 0.13,
+          directionRatio: 1.25,
+          clickGuard: 450,
+        },
+        motion: {
+          page: 280,
+          flipOut: 150,
+          flipIn: 240,
+          slideOut: 130,
+          slideIn: 230,
+          chapter: 350,
+          stagger: 45,
+        },
+        easing: 'cubic-bezier(.22,.8,.25,1)',
+      });
+
+      // ── 数据与 DOM：ID 只在这里集中引用 ──────────────────────────────
+      const chapters = JSON.parse(document.getElementById('data').textContent);
+      const entries = chapters.flatMap((chapter) =>
+        chapter.words.map((word) => ({
+          ...word,
+          chapterId: chapter.id,
+          chapterTitle: chapter.title,
+        })),
+      );
+      const dom = Object.fromEntries(
+        [
+          'home',
+          'workspace',
+          'study',
+          'table',
+          'homeNav',
+          'studyNav',
+          'tableNav',
+          'theme',
+          'sectionTitle',
+          'chapterSelect',
+          'status',
+          'engine',
+          'accent',
+          'rate',
+          'voice',
+          'testVoice',
+        ].map((id) => [id, document.getElementById(id)]),
+      );
+      const saved = readSavedState();
+      const state = {
+        page: CONFIG.pages.includes(saved.page) ? saved.page : 'home',
+        chapterId:
+          saved.chapter === 'all' || chapters.some((chapter) => chapter.id === saved.chapter)
+            ? saved.chapter
+            : chapters[0].id,
+        positions: saved.positions && typeof saved.positions === 'object' ? saved.positions : {},
+        revealed: Boolean(saved.revealed),
+        theme: ['light', 'dark'].includes(saved.theme)
+          ? saved.theme
+          : matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light',
+        engine: saved.engine === 'system' ? 'system' : 'online',
+        accent: saved.accent === '1' ? '1' : '2',
+        rate: ['0.8', '1', '1.2'].includes(String(saved.rate)) ? String(saved.rate) : '1',
+        voice: typeof saved.voice === 'string' ? saved.voice : '',
+      };
+      let activeEntries = [];
+      let activeIndex = 0;
+      let motionVersion = 0;
+      let ignoreClicksUntil = 0;
+
+      // ── 存储：读写失败不影响学习；保留旧版已存字段 ──────────────────────
+      function readSavedState() {
+        try {
+          const value = JSON.parse(localStorage.getItem(CONFIG.storageKey) || '{}');
+          return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+        } catch {
+          return {};
+        }
+      }
+      function saveState() {
+        try {
+          localStorage.setItem(
+            CONFIG.storageKey,
+            JSON.stringify({
+              ...saved,
+              page: state.page,
+              chapter: state.chapterId,
+              positions: state.positions,
+              revealed: state.revealed,
+              theme: state.theme,
+              engine: state.engine,
+              accent: state.accent,
+              rate: state.rate,
+              voice: state.voice,
+            }),
+          );
+        } catch {
+          setStatus('浏览器未允许保存，当前学习仍可继续。');
+        }
+      }
+      function entryKey(entry) {
+        return `${entry.chapterId}|${entry.word}`;
+      }
+      function setStatus(message) {
+        dom.status.textContent = message;
+      }
+      function escapeHtml(value) {
+        return String(value ?? '').replace(
+          /[&<>"']/g,
+          (char) =>
+            ({
+              '&': '&amp;',
+              '<': '&lt;',
+              '>': '&gt;',
+              '"': '&quot;',
+              "'": '&#39;',
+            })[char],
+        );
+      }
+      function exampleHtml(value) {
+        return escapeHtml(value).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      }
+
+      // ── 页面渲染：目录、闪卡、词表分别维护 ──────────────────────────────
+      function renderPage() {
+        const home = state.page === 'home';
+        dom.home.classList.toggle('hidden', !home);
+        dom.workspace.classList.toggle('hidden', home);
+        dom.study.classList.toggle('hidden', state.page !== 'study');
+        dom.table.classList.toggle('hidden', state.page !== 'table');
+        for (const [page, button] of [
+          ['home', dom.homeNav],
+          ['study', dom.studyNav],
+          ['table', dom.tableNav],
+        ]) {
+          button.classList.toggle('active', page === state.page);
+          button.setAttribute('aria-current', page === state.page ? 'page' : 'false');
+        }
+        if (home) {
+          renderHome();
+          return;
+        }
+        dom.chapterSelect.value = state.chapterId;
+        dom.workspace.classList.toggle('allchapters', state.chapterId === 'all');
+        dom.sectionTitle.textContent =
+          state.chapterId === 'all'
+            ? '全部词汇'
+            : chapters.find((chapter) => chapter.id === state.chapterId).title;
+        activeEntries = entries.filter(
+          (entry) => state.chapterId === 'all' || entry.chapterId === state.chapterId,
+        );
+        activeIndex = Math.max(
+          0,
+          activeEntries.findIndex((entry) => entryKey(entry) === state.positions[state.chapterId]),
+        );
+        if (state.page === 'study') renderFlashcard();
+        else renderWordTable();
+      }
+      function renderHome() {
+        dom.home.innerHTML = /* HTML */ `<div class="grid">
+          ${chapters
+            .map(
+              (chapter) => /* HTML */ `
+                <button
+                  class="chapter"
+                  data-chapter="${escapeHtml(chapter.id)}"
+                  data-count="${chapter.words.length} 个词条"
+                >
+                  <h2>${escapeHtml(chapter.title)}</h2>
+                </button>
+              `,
+            )
+            .join('')}
+        </div>`;
+      }
+      function renderFlashcard() {
+        const entry = activeEntries[activeIndex];
+        if (!entry) {
+          dom.study.innerHTML = '<div class="empty">这个章节暂无词条。</div>';
+          return;
+        }
+        state.positions[state.chapterId] = entryKey(entry);
+        dom.study.innerHTML = /* HTML */ `
+          <div
+            class="card ${state.revealed ? 'is-revealed' : ''}"
+            tabindex="0"
+            role="group"
+            aria-label="词卡，点击显示或收起释义"
+          >
+            <div class="eyebrow">
+              ${escapeHtml(entry.chapterTitle)} · ${activeIndex + 1} / ${activeEntries.length}
+            </div>
+            <h2 class="word">${escapeHtml(entry.word)}</h2>
+            <div class="phonetic">
+              ${escapeHtml(entry.phonetic)} <span>${escapeHtml(entry.pos)}</span>
+            </div>
+            <div class="actions"><button data-action="speak-word">▷ 读单词</button></div>
+            ${
+              state.revealed
+                ? /* HTML */ `
+                    <div class="answer">
+                      <div class="meaning">${escapeHtml(entry.meaning)}</div>
+                      <div class="example">${exampleHtml(entry.example)}</div>
+                      <button class="tablebtn" data-action="speak-example">▷ 读例句</button>
+                    </div>
+                  `
+                : ''
+            }
+            <div class="flipHint">
+              点击卡片查看释义<span class="swipeHint"> · 左右滑动切词</span>
+            </div>
+          </div>
+          <div class="actions">
+            <button data-action="previous" ${activeIndex === 0 ? 'disabled' : ''}>← 上一个</button>
+            <button
+              data-action="next"
+              ${activeIndex === activeEntries.length - 1 ? 'disabled' : ''}
+            >
+              下一个 →
+            </button>
+          </div>
+        `;
+        bindCardGesture(dom.study.querySelector('.card'));
+      }
+      function renderWordTable() {
+        dom.table.innerHTML = /* HTML */ `
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>单词 / 词块</th>
+                  <th>音标 · 词性</th>
+                  <th>释义</th>
+                  <th>例句</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${activeEntries
+                  .map(
+                    (entry, index) => /* HTML */ `
+                      <tr>
+                        <td>
+                          <div class="en">${escapeHtml(entry.word)}</div>
+                          <div class="small">${escapeHtml(entry.chapterTitle)}</div>
+                          <button class="tablebtn" data-speak="${index}">▷ 发音</button>
+                        </td>
+                        <td>
+                          ${escapeHtml(entry.phonetic)}<br /><span class="small"
+                            >${escapeHtml(entry.pos)}</span
+                          >
+                        </td>
+                        <td>${escapeHtml(entry.meaning)}</td>
+                        <td>
+                          ${exampleHtml(entry.example)}
+                          <div class="translation">${escapeHtml(entry.exampleZh)}</div>
+                        </td>
+                      </tr>
+                    `,
+                  )
+                  .join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+      function applyTheme() {
+        document.body.classList.toggle('dark', state.theme === 'dark');
+        dom.theme.textContent = state.theme === 'dark' ? '日间' : '夜间';
+      }
+      function navigate(page, chapterId = state.chapterId) {
+        motionVersion++; // 使旧卡片未完成的动画失效，防止覆盖新页面。
+        speech.stop();
+        state.page = page;
+        state.chapterId = chapterId;
+        state.revealed = false;
+        renderPage();
+        saveState();
+        animatePage();
+      }
+
+      // ── 动效：只负责过渡，不改数据；遵循“减少动态效果” ────────────────────
+      function prefersReducedMotion() {
+        return matchMedia('(prefers-reduced-motion: reduce)').matches;
+      }
+      function animateElement(element, frames, duration, extra = {}) {
+        if (!element?.animate || prefersReducedMotion()) return null;
+        return element.animate(frames, { duration, easing: CONFIG.easing, ...extra });
+      }
+      function animatePage() {
+        const element = state.page === 'home' ? dom.home : dom.workspace;
+        animateElement(
+          element,
+          [
+            { opacity: 0, transform: 'translateY(10px)' },
+            { opacity: 1, transform: 'translateY(0)' },
+          ],
+          CONFIG.motion.page,
+        );
+        if (state.page === 'home')
+          dom.home.querySelectorAll('.chapter').forEach((chapter, index) => {
+            animateElement(
+              chapter,
+              [
+                { opacity: 0, transform: 'translateY(14px)' },
+                { opacity: 1, transform: 'translateY(0)' },
+              ],
+              CONFIG.motion.chapter,
+              { delay: index * CONFIG.motion.stagger, fill: 'backwards' },
+            );
+          });
+      }
+      function transitionCard(change, direction = 0) {
+        const card = dom.study.querySelector('.card');
+        const version = ++motionVersion;
+        const frames = direction
+          ? [
+              { opacity: 1, transform: 'translateX(0)' },
+              { opacity: 0, transform: `translateX(${-direction * 36}px)` },
+            ]
+          : [
+              { opacity: 1, transform: 'perspective(1200px) rotateY(0)' },
+              { opacity: 0.4, transform: 'perspective(1200px) rotateY(75deg)' },
+            ];
+        const outgoing = animateElement(
+          card,
+          frames,
+          direction ? CONFIG.motion.slideOut : CONFIG.motion.flipOut,
+          { easing: 'ease-in', fill: 'forwards' },
+        );
+        if (!outgoing) {
+          change();
+          return;
+        }
+        outgoing.finished
+          .then(() => {
+            if (version !== motionVersion || state.page !== 'study') {
+              outgoing.cancel();
+              return;
+            }
+            change();
+            const next = dom.study.querySelector('.card');
+            const incoming = direction
+              ? [
+                  { opacity: 0, transform: `translateX(${direction * 36}px)` },
+                  { opacity: 1, transform: 'translateX(0)' },
+                ]
+              : [
+                  { opacity: 0.4, transform: 'perspective(1200px) rotateY(-75deg)' },
+                  { opacity: 1, transform: 'perspective(1200px) rotateY(0)' },
+                ];
+            animateElement(
+              next,
+              incoming,
+              direction ? CONFIG.motion.slideIn : CONFIG.motion.flipIn,
+            );
+          })
+          .catch(() => {}); // 导航取消动画属于正常情况。
+      }
+      function flipCard() {
+        transitionCard(() => {
+          state.revealed = !state.revealed;
+          renderFlashcard();
+          dom.study.querySelector('.card')?.focus({ preventScroll: true });
+          saveState();
+        });
+      }
+      function moveCard(direction) {
+        const nextIndex = activeIndex + direction;
+        if (nextIndex < 0 || nextIndex >= activeEntries.length) return;
+        speech.stop();
+        transitionCard(() => {
+          activeIndex = nextIndex;
+          state.revealed = false;
+          renderFlashcard();
+          saveState();
+        }, direction);
+      }
+
+      // ── 手势：Pointer Events 同时覆盖鼠标和触摸；纵向滚动不翻页 ─────────────
+      function bindCardGesture(card) {
+        let start = null;
+        card.onpointerdown = (event) => {
+          if (!event.isPrimary || event.button !== 0 || event.target.closest('button')) return;
+          start = { id: event.pointerId, x: event.clientX, y: event.clientY };
+          card.setPointerCapture?.(event.pointerId);
+        };
+        card.onpointerup = (event) => {
+          if (!start || event.pointerId !== start.id) return;
+          const dx = event.clientX - start.x;
+          const dy = event.clientY - start.y;
+          start = null;
+          const threshold = Math.max(
+            CONFIG.swipe.minDistance,
+            Math.min(CONFIG.swipe.maxDistance, card.clientWidth * CONFIG.swipe.widthRatio),
+          );
+          if (
+            Math.abs(dx) < threshold ||
+            Math.abs(dx) <= Math.abs(dy) * CONFIG.swipe.directionRatio
+          )
+            return;
+          ignoreClicksUntil = Date.now() + CONFIG.swipe.clickGuard;
+          event.preventDefault();
+          moveCard(dx < 0 ? 1 : -1);
+        };
+        card.onpointercancel = () => {
+          start = null;
+        };
+        card.ondragstart = (event) => event.preventDefault();
+      }
+      function handleStudyClick(event) {
+        if (Date.now() < ignoreClicksUntil) return;
+        const button = event.target.closest('button[data-action]');
+        const entry = activeEntries[activeIndex];
+        if (button && entry) {
+          switch (button.dataset.action) {
+            case 'speak-word':
+              speech.speak(entry.word);
+              break;
+            case 'speak-example':
+              speech.speak(entry.example);
+              break;
+            case 'previous':
+              moveCard(-1);
+              break;
+            case 'next':
+              moveCard(1);
+              break;
+          }
+          return;
+        }
+        if (event.target.closest('.card')) flipCard();
+      }
+      function handleKeyboard(event) {
+        if (
+          state.page !== 'study' ||
+          !activeEntries.length ||
+          event.ctrlKey ||
+          event.metaKey ||
+          event.altKey
+        )
+          return;
+        if (/INPUT|SELECT|TEXTAREA|BUTTON|SUMMARY/.test(document.activeElement.tagName)) return;
+        if (
+          event.code === 'Space' ||
+          (event.key === 'Enter' && document.activeElement.closest('.card'))
+        ) {
+          event.preventDefault();
+          flipCard();
+        } else if (event.key === 'ArrowRight') {
+          event.preventDefault();
+          moveCard(1);
+        } else if (event.key === 'ArrowLeft') {
+          event.preventDefault();
+          moveCard(-1);
+        } else if (event.key.toLowerCase() === 's') speech.speak(activeEntries[activeIndex].word);
+      }
+
+      // ── 发音：独立控制器；清理、失效请求、回退逻辑只有一份 ──────────────────
+      function normalizeSpeech(raw) {
+        return String(raw)
+          .normalize('NFKC')
+          .replace(/\*\*/g, '')
+          .replace(/(?:\.{2,}|…+|_{2,})/g, ' ')
+          .replace(/[\u200B-\u200D\uFEFF]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+      function createSpeechController() {
+        let requestId = 0;
+        let timer = null;
+        let audio = null;
+        let utterance = null; // 保持引用，直到系统朗读完成。
+        const clearTimer = () => {
+          clearTimeout(timer);
+          timer = null;
+        };
+        function releaseAudio() {
+          if (!audio) return;
+          audio.onerror = audio.onended = audio.onplaying = audio.onloadedmetadata = null;
+          audio.pause();
+          audio.removeAttribute('src');
+          audio.load();
+          audio = null;
+        }
+        function stop() {
+          requestId++;
+          clearTimer();
+          releaseAudio();
+          window.speechSynthesis?.cancel();
+          utterance = null;
+          setStatus('');
+        }
+        function refreshVoices() {
+          if (!window.speechSynthesis) return;
+          const voices = window.speechSynthesis
+            .getVoices()
+            .filter((voice) => /^en/i.test(voice.lang));
+          dom.voice.innerHTML =
+            '<option value="">自动选择英文声音</option>' +
+            voices
+              .map(
+                (voice) =>
+                  `<option value="${escapeHtml(voice.name)}">${escapeHtml(voice.name)} (${escapeHtml(voice.lang)})</option>`,
+              )
+              .join('');
+          if (voices.some((voice) => voice.name === state.voice)) dom.voice.value = state.voice;
+        }
+        function speakSystem(text, id) {
+          if (id !== requestId) return;
+          const synth = window.speechSynthesis;
+          if (!synth) {
+            setStatus('此浏览器不支持系统语音，请联网使用在线发音。');
+            return;
+          }
+          const lang = state.accent === '1' ? 'en-GB' : 'en-US';
+          const voices = synth.getVoices();
+          const voice =
+            voices.find((item) => item.name === state.voice) ||
+            voices.find((item) => item.lang === lang) ||
+            voices.find((item) => /^en/i.test(item.lang));
+          utterance = new SpeechSynthesisUtterance(text);
+          if (voice) utterance.voice = voice;
+          utterance.lang = voice?.lang || lang;
+          utterance.rate = Number(state.rate);
+          utterance.onstart = () => {
+            if (id !== requestId) return;
+            clearTimer();
+            setStatus(`正在朗读 · ${voice?.name || '系统默认英文声音'}`);
+          };
+          utterance.onend = () => {
+            if (id === requestId) {
+              clearTimer();
+              utterance = null;
+              setStatus('朗读结束');
+            }
+          };
+          utterance.onerror = (event) => {
+            if (id !== requestId) return;
+            clearTimer();
+            utterance = null;
+            if (event.error !== 'interrupted')
+              setStatus('系统朗读失败，请切换声音或使用在线发音。');
+          };
+          timer = setTimeout(() => {
+            if (id !== requestId) return;
+            synth.cancel();
+            setStatus('系统语音未启动，请切换声音或浏览器重试。');
+          }, CONFIG.systemStartTimeout);
+          synth.resume();
+          synth.speak(utterance);
+        }
+        function speak(raw) {
+          stop();
+          const id = requestId;
+          const text = normalizeSpeech(raw);
+          if (!text) {
+            setStatus('这个词条没有可朗读的英文。');
+            return;
+          }
+          if (state.engine === 'system') {
+            speakSystem(text, id);
+            return;
+          }
+          let failed = false;
+          let startedAt = 0;
+          function fallback() {
+            if (id !== requestId || failed) return;
+            failed = true;
+            clearTimer();
+            releaseAudio();
+            setStatus('在线发音不可用，尝试系统语音…');
+            speakSystem(text, id);
+          }
+          setStatus('正在加载在线发音…');
+          audio = new Audio();
+          audio.playbackRate = Number(state.rate);
+          audio.onerror = fallback;
+          audio.onloadedmetadata = () => {
+            if (
+              id === requestId &&
+              Number.isFinite(audio?.duration) &&
+              audio.duration < CONFIG.minimumAudioDuration
+            )
+              fallback();
+          };
+          audio.onplaying = () => {
+            if (id !== requestId) return;
+            startedAt = Date.now();
+            clearTimer();
+            setStatus('正在播放 · 有道词典');
+            timer = setTimeout(fallback, Math.max(15000, text.length * 180));
+          };
+          audio.onended = () => {
+            if (id !== requestId) return;
+            clearTimer();
+            if (!startedAt || Date.now() - startedAt < 180) {
+              fallback();
+              return;
+            }
+            setStatus('播放结束');
+            releaseAudio();
+          };
+          audio.src = `${CONFIG.dictionaryEndpoint}?le=eng&type=${state.accent}&audio=${encodeURIComponent(text)}`;
+          timer = setTimeout(fallback, CONFIG.audioLoadTimeout);
+          audio.play().catch(() => fallback());
+        }
+        return { stop, speak, refreshVoices };
+      }
+      const speech = createSpeechController();
+
+      // ── 初始化：静态事件只绑定一次；动态列表使用事件委托 ───────────────────
+      function bindEvents() {
+        dom.homeNav.onclick = () => navigate('home');
+        dom.studyNav.onclick = () => navigate('study');
+        dom.tableNav.onclick = () => navigate('table');
+        dom.theme.onclick = () => {
+          state.theme = state.theme === 'dark' ? 'light' : 'dark';
+          applyTheme();
+          saveState();
+        };
+        dom.chapterSelect.onchange = () => navigate(state.page, dom.chapterSelect.value);
+        dom.home.addEventListener('click', (event) => {
+          const chapter = event.target.closest('[data-chapter]');
+          if (chapter) navigate('study', chapter.dataset.chapter);
+        });
+        dom.study.addEventListener('click', handleStudyClick);
+        dom.table.addEventListener('click', (event) => {
+          const button = event.target.closest('[data-speak]');
+          const entry = button && activeEntries[Number(button.dataset.speak)];
+          if (entry) speech.speak(entry.word);
+        });
+        for (const key of ['engine', 'accent', 'rate', 'voice']) {
+          dom[key].value = state[key];
+          dom[key].onchange = () => {
+            speech.stop();
+            state[key] = dom[key].value;
+            saveState();
+          };
+        }
+        dom.testVoice.onclick = () => speech.speak('hello');
+        document.addEventListener('keydown', handleKeyboard);
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) speech.stop();
+        });
+        document.querySelector('details').addEventListener('toggle', (event) => {
+          if (event.target.open)
+            animateElement(
+              document.querySelector('.settings'),
+              [
+                { opacity: 0, transform: 'translateY(-4px)' },
+                { opacity: 1, transform: 'translateY(0)' },
+              ],
+              CONFIG.motion.page,
+            );
+        });
+        window.speechSynthesis?.addEventListener('voiceschanged', speech.refreshVoices);
+      }
+      function init() {
+        dom.chapterSelect.innerHTML =
+          '<option value="all">全部章节</option>' +
+          chapters
+            .map(
+              (chapter) =>
+                `<option value="${escapeHtml(chapter.id)}">${escapeHtml(chapter.title)}</option>`,
+            )
+            .join('');
+        applyTheme();
+        bindEvents();
+        speech.refreshVoices();
+        renderPage();
+        saveState();
+        animatePage();
+      }
+      init();
+    </script>
+  </body>
+</html>
